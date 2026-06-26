@@ -220,50 +220,54 @@
   .pm-btn-del:hover{background:rgba(239,68,68,.18);}
 </style>
 
-<!-- 유저 엑셀 접수 패널 -->
-<div class="prod-panel collapsed" id="uex-panel">
-  <div class="prod-ph" onclick="toggleUexPanel(event)">
-    <span>📊</span>
-    <span class="prod-ph-title">대행사 엑셀 접수</span>
-    <span class="prod-toggle-icon" id="uex-toggle-icon">&#9660;</span>
-    <span class="prod-ph-desc" style="flex:1;text-align:center;font-size:11px;color:var(--muted);">엑셀을 업로드하면 여러 건을 한 번에 접수 등록할 수 있습니다</span>
-    <div class="prod-ph-actions" onclick="event.stopPropagation()" style="display:flex;gap:6px;">
-      <button class="action-btn" style="background:#475569;color:#fff;font-size:11px;padding:4px 10px;" onclick="downloadUexTemplate()">📥 양식 다운로드</button>
-    </div>
-  </div>
-  <div class="prod-pb">
-    <div class="uex-info">
-      <div class="uex-info-text">
-        <strong>엑셀 양식 컬럼 순서</strong><br>
-        대행사 / 업체명 / URL / MID / 순위키워드 / 일 수 / 시작일 / 일 목표
+<!-- 액션 버튼 -->
+<div style="display:flex;gap:8px;margin-bottom:14px;">
+  <button class="action-btn" onclick="openUexModal()" style="background:var(--info);color:#fff;padding:7px 16px;font-size:12px;">📊 대행사 엑셀 접수</button>
+  <button class="action-btn" onclick="openStopModal()" style="background:#7b1fa2;color:#fff;padding:7px 16px;font-size:12px;">🛑 강제종료</button>
+</div>
+
+<!-- 대행사 엑셀 접수 모달 -->
+<div id="uex-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9100;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px;">
+  <div style="background:#fff;border-radius:16px;width:860px;max-width:100%;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1;">
+      <div style="font-size:15px;font-weight:700;">📊 대행사 엑셀 접수</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="action-btn" style="background:#475569;color:#fff;font-size:11px;padding:4px 10px;" onclick="downloadUexTemplate()">📥 양식 다운로드</button>
+        <button onclick="closeUexModal()" style="border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
       </div>
     </div>
-
-    <div class="uex-zone" id="uex-zone" onclick="document.getElementById('uex-file').click()">
-      <input type="file" id="uex-file" accept=".xlsx,.xls" onchange="handleUexFile(this)">
-      <div class="uex-zone-icon">📊</div>
-      <div class="uex-zone-title">엑셀 파일을 여기에 끌어다 놓거나 클릭하여 선택</div>
-      <div class="uex-zone-desc">.xlsx, .xls 파일 지원</div>
-    </div>
-
-    <div id="uex-preview" style="display:none;">
-      <div class="uex-preview-info" id="uex-preview-info"></div>
-      <div class="uex-preview-wrap">
-        <table class="uex-table">
-          <thead>
-            <tr>
-              <th style="width:30px">#</th>
-              <th>대행사</th><th>업체명</th><th>URL</th><th style="width:100px">MID</th>
-              <th>순위키워드</th><th style="width:50px">일수</th><th style="width:86px">시작일</th>
-              <th style="width:86px">종료일</th><th style="width:70px">일목표</th><th style="width:160px">상태</th>
-            </tr>
-          </thead>
-          <tbody id="uex-preview-body"></tbody>
-        </table>
+    <div style="padding:20px 24px;">
+      <div class="uex-info">
+        <div class="uex-info-text">
+          <strong>엑셀 양식 컬럼 순서</strong><br>
+          대행사 / 업체명 / URL / MID / 순위키워드 / 일 수 / 시작일 / 일 목표
+        </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
-        <button class="btn-cancel" onclick="resetUex()">다시 선택</button>
-        <button class="btn-save" id="uex-submit-btn" onclick="submitUex()">선택 접수 등록</button>
+      <div class="uex-zone" id="uex-zone" onclick="document.getElementById('uex-file').click()">
+        <input type="file" id="uex-file" accept=".xlsx,.xls" onchange="handleUexFile(this)">
+        <div class="uex-zone-icon">📊</div>
+        <div class="uex-zone-title">엑셀 파일을 여기에 끌어다 놓거나 클릭하여 선택</div>
+        <div class="uex-zone-desc">.xlsx, .xls 파일 지원</div>
+      </div>
+      <div id="uex-preview" style="display:none;">
+        <div class="uex-preview-info" id="uex-preview-info"></div>
+        <div class="uex-preview-wrap">
+          <table class="uex-table">
+            <thead>
+              <tr>
+                <th style="width:30px">#</th>
+                <th>대행사</th><th>업체명</th><th>URL</th><th style="width:100px">MID</th>
+                <th>순위키워드</th><th style="width:50px">일수</th><th style="width:86px">시작일</th>
+                <th style="width:86px">종료일</th><th style="width:70px">일목표</th><th style="width:160px">상태</th>
+              </tr>
+            </thead>
+            <tbody id="uex-preview-body"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+          <button class="btn-cancel" onclick="resetUex()">다시 선택</button>
+          <button class="btn-save" id="uex-submit-btn" onclick="submitUex()">선택 접수 등록</button>
+        </div>
       </div>
     </div>
   </div>
@@ -312,15 +316,14 @@
   </div>
 </div>
 
-<!-- 강제종료 패널 -->
-<div class="prod-panel collapsed" id="stop-panel">
-  <div class="prod-ph" onclick="toggleStopPanel(event)">
-    <span>🛑</span>
-    <span class="prod-ph-title">강제종료</span>
-    <span class="prod-toggle-icon">&#9660;</span>
-    <span class="prod-ph-desc" style="flex:1;text-align:center;font-size:11px;color:var(--muted);">BizFit 임시중단B·강제종료 상태를 일괄 변경합니다</span>
-  </div>
-  <div class="prod-pb">
+<!-- 강제종료 모달 -->
+<div id="stop-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9100;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px;">
+  <div style="background:#fff;border-radius:16px;width:1100px;max-width:100%;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1;">
+      <div style="font-size:15px;font-weight:700;">🛑 강제종료</div>
+      <button onclick="closeStopModal()" style="border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
+    </div>
+  <div style="padding:20px 24px;">
     <style>
       .bs-grid { display:grid; grid-template-columns:240px 1fr 380px; gap:14px; align-items:start; }
       @media(max-width:1100px){ .bs-grid{ grid-template-columns:240px 1fr; } .bs-run-col{ grid-column:1/-1; } }
@@ -504,9 +507,16 @@
 </div>
 
 <script>
-window.toggleStopPanel = function(e) {
-  document.getElementById('stop-panel').classList.toggle('collapsed');
+window.openStopModal = function() {
+  const m = document.getElementById('stop-modal');
+  m.style.display = 'flex';
 };
+window.closeStopModal = function() {
+  document.getElementById('stop-modal').style.display = 'none';
+};
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeStopModal(); closeUexModal(); }
+});
 
 (function() {
   const SERVER = 'https://macro-7-bizfit-stop-938928195180.asia-northeast3.run.app';
@@ -957,9 +967,12 @@ window.toggleProdPanel = function(e) {
 };
 
 // 유저 엑셀 접수 패널 접기/펼치기
-window.toggleUexPanel = function(e) {
-  const panel = document.getElementById('uex-panel');
-  panel.classList.toggle('collapsed');
+window.openUexModal = function() {
+  const m = document.getElementById('uex-modal');
+  m.style.display = 'flex';
+};
+window.closeUexModal = function() {
+  document.getElementById('uex-modal').style.display = 'none';
 };
 
 (function(){
@@ -2438,7 +2451,7 @@ window.toggleUexPanel = function(e) {
     resetUex();
     btn.disabled = false;
     btn.textContent = '선택 접수 등록';
-    document.getElementById('uex-panel').classList.add('collapsed');
+    closeUexModal();
   };
 
   // 최초 로드
