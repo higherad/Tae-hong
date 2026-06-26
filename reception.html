@@ -367,13 +367,13 @@
     <thead>
       <tr>
         <th><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
-        <th>번호</th><th>접수일시</th><th>대행사</th><th>유저 ID</th>
+        <th>번호</th><th>접수일시</th><th>대행사</th>
         <th>캠페인타입</th><th>플레이스명</th><th>MID</th><th>순위키워드</th>
         <th>일 수</th><th>시작일</th><th>종료일</th><th>일 목표</th><th>상태</th><th>액션</th><th class="rank-col">순위</th>
       </tr>
     </thead>
     <tbody id="receipt-body">
-      <tr><td colspan="16" class="loading-wrap"><div class="spinner"></div> 데이터 불러오는 중...</td></tr>
+      <tr><td colspan="15" class="loading-wrap"><div class="spinner"></div> 데이터 불러오는 중...</td></tr>
     </tbody>
   </table>
 </div>
@@ -713,7 +713,6 @@ window.toggleUexPanel = function(e) {
             })()
           }</td>
           <td style="font-weight:600">${s.agencyId||'-'}</td>
-          <td>${s.userId||'-'}</td>
           <td>${['pending','accepted','active'].includes(s.status)
             ? `<span id="grade-${s._key}" style="color:#94a3b8;font-size:11px">···</span>`
             : `<span style="color:#cbd5e1">-</span>`
