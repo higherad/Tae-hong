@@ -66,13 +66,13 @@ async function onBsEntrySuccess(mid) {
 
 ### 컬럼 순서 (변경 후)
 ```
-대행사 / 업체명 / URL / MID / 순위키워드 / 검색키워드 / 일수 / 시작일 / 일목표
+대행사 / 업체명 / URL / MID / 순위키워드 / 일수 / 시작일 / 일목표 / 검색키워드
 ```
 인덱스: r[0]~r[8]
 
 **스니펫 — `parseUexRows()` 수정**
 ```js
-// 기존 r[5]=일수  →  r[5]=검색키워드, r[6]=일수, r[7]=시작일, r[8]=일목표
+// 기존 r[7]=일목표 유지, r[8]=검색키워드 신규 추가
 function parseUexRow(r) {
   return {
     agencyId:      (r[0] || '').toString().trim(),
@@ -80,24 +80,24 @@ function parseUexRow(r) {
     url:           (r[2] || '').toString().trim(),
     mid:           (r[3] || '').toString().trim(),
     rankKeyword:   (r[4] || '').toString().trim(),
-    searchKeyword: (r[5] || '').toString().trim(),   // ← 신규
-    days:          Number(r[6]) || 0,
-    startDate:     fmtDate(r[7]),
-    dailyTarget:   Number(r[8]) || 0,
+    days:          Number(r[5]) || 0,
+    startDate:     fmtDate(r[6]),
+    dailyTarget:   Number(r[7]) || 0,
+    searchKeyword: (r[8] || '').toString().trim(),   // ← 신규 (마지막)
   };
 }
 ```
 
 **스니펫 — 양식 다운로드 헤더 수정 (`downloadUexTemplate`)**
 ```js
-const header = ['대행사','업체명','URL','MID','순위키워드','검색키워드','일수','시작일','일목표'];
+const header = ['대행사','업체명','URL','MID','순위키워드','일수','시작일','일목표','검색키워드'];
 ```
 
 **스니펫 — 미리보기 테이블 헤더 수정**
 ```html
-<th>순위키워드</th>
-<th>검색키워드</th>   <!-- ← 추가 -->
-<th style="width:50px">일수</th>
+<th style="width:70px">일목표</th>
+<th>검색키워드</th>   <!-- ← 추가 (마지막) -->
+<th style="width:160px">상태</th>
 ```
 
 ---
