@@ -235,7 +235,7 @@
     <div class="uex-info">
       <div class="uex-info-text">
         <strong>엑셀 양식 컬럼 순서</strong><br>
-        대행사 / 유저ID / 업체명 / URL / MID / 순위키워드 / 일 수 / 시작일 / 일 목표
+        대행사 / 업체명 / URL / MID / 순위키워드 / 일 수 / 시작일 / 일 목표
       </div>
     </div>
 
@@ -253,7 +253,7 @@
           <thead>
             <tr>
               <th style="width:30px">#</th>
-              <th>대행사</th><th>유저ID</th><th>업체명</th><th>URL</th><th style="width:100px">MID</th>
+              <th>대행사</th><th>업체명</th><th>URL</th><th style="width:100px">MID</th>
               <th>순위키워드</th><th style="width:50px">일수</th><th style="width:86px">시작일</th>
               <th style="width:86px">종료일</th><th style="width:70px">일목표</th><th style="width:160px">상태</th>
             </tr>
@@ -1809,15 +1809,14 @@ window.toggleUexPanel = function(e) {
 
           uexRows = dataRows.map(r => {
             const agencyId    = String(r[0] ?? '').trim();
-            const userId      = String(r[1] ?? '').trim();
-            const storeName   = String(r[2] ?? '').trim();
-            const url         = uexNormalizeUrl(r[3]) || null;
-            const mid         = String(r[4] ?? '').trim();
-            const rankKeyword = String(r[5] ?? '').trim().replace(/\s+/g, '');
-            const daysRaw         = String(r[6] ?? '').trim();
+            const storeName   = String(r[1] ?? '').trim();
+            const url         = uexNormalizeUrl(r[2]) || null;
+            const mid         = String(r[3] ?? '').trim();
+            const rankKeyword = String(r[4] ?? '').trim().replace(/\s+/g, '');
+            const daysRaw         = String(r[5] ?? '').trim();
             const days            = daysRaw !== '' ? Number(daysRaw) : null;
-            const startDate       = uexNormalizeDate(r[7]) || null;
-            const dailyTargetRaw  = String(r[8] ?? '').trim();
+            const startDate       = uexNormalizeDate(r[6]) || null;
+            const dailyTargetRaw  = String(r[7] ?? '').trim();
             const dailyTarget     = dailyTargetRaw !== '' ? Number(dailyTargetRaw) : null;
 
             let endDate = null;
@@ -1830,7 +1829,6 @@ window.toggleUexPanel = function(e) {
             const errors = [];
             const urlMid = url ? uexExtractMid(url) : null;
             if (!agencyId)    errors.push('대행사 누락');
-            if (!userId)      errors.push('유저ID 누락');
             if (!storeName)   errors.push('업체명 누락');
             if (!url)         errors.push('URL 누락');
             else if (!urlMid) errors.push('유효하지 않은 플레이스 주소');
@@ -1842,7 +1840,7 @@ window.toggleUexPanel = function(e) {
             if (dailyTarget === null || isNaN(dailyTarget) || dailyTarget < 0) errors.push('일 목표 오류');
 
             return {
-              agencyId, userId, storeName, url, mid, rankKeyword, days, startDate, endDate, dailyTarget,
+              agencyId, storeName, url, mid, rankKeyword, days, startDate, endDate, dailyTarget,
               valid: errors.length === 0, error: errors.join(' / '),
             };
           });
@@ -1865,7 +1863,6 @@ window.toggleUexPanel = function(e) {
       <tr>
         <td style="color:var(--muted)">${i+1}</td>
         <td style="font-weight:600">${r.agencyId || '-'}</td>
-        <td>${r.userId || '-'}</td>
         <td style="font-weight:500">${r.storeName || '-'}</td>
         <td style="color:var(--text2);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.url || '-'}</td>
         <td style="color:var(--text2)">${r.mid || '-'}</td>
@@ -1895,10 +1892,10 @@ window.toggleUexPanel = function(e) {
       const wb = window.XLSX.utils.book_new();
       const todayStr = uexFmt(new Date());
       const ws = window.XLSX.utils.aoa_to_sheet([
-        ['대행사', '유저ID', '업체명', 'URL', 'MID', '순위키워드', '일 수', '시작일', '일 목표'],
-        ['예시대행사', 'user01', '테스트 맛집', 'https://m.place.naver.com/restaurant/123456789', '123456789', '강남 맛집', 7, todayStr, 1000],
+        ['대행사', '업체명', 'URL', 'MID', '순위키워드', '일 수', '시작일', '일 목표'],
+        ['예시대행사', '테스트 맛집', 'https://m.place.naver.com/restaurant/123456789', '123456789', '강남 맛집', 7, todayStr, 1000],
       ]);
-      ws['!cols'] = [{wch:14},{wch:12},{wch:20},{wch:50},{wch:13},{wch:18},{wch:8},{wch:12},{wch:10}];
+      ws['!cols'] = [{wch:14},{wch:20},{wch:50},{wch:13},{wch:18},{wch:8},{wch:12},{wch:10}];
       window.XLSX.utils.book_append_sheet(wb, ws, '접수');
       window.XLSX.writeFile(wb, '유저엑셀접수_양식.xlsx');
     });
@@ -1918,7 +1915,6 @@ window.toggleUexPanel = function(e) {
       try {
         const result = await HA.addSlot({
           agencyId:    row.agencyId,
-          userId:      row.userId,
           storeName:   row.storeName,
           rankKeyword: row.rankKeyword,
           url:         row.url,
