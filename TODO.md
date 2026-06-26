@@ -212,7 +212,37 @@ function kwForProd(keywords, prod) {
 
 ---
 
-## 6. 강제종료 — 리스트 체크 항목 불러오기 버튼
+## 6. 강제종료 — 캠페인명 필드 제거
+
+> 적용 대상: `reception.html` 강제종료 모달 + `tools/macro/bizfit_stop.html`
+
+캠페인명(메모용) 입력 항목 제거. MID + 메모 만 남긴다.
+
+**제거할 항목 목록**
+
+| 파일 | 위치 | 제거 내용 |
+|---|---|---|
+| `reception.html` | 입력 폼 | `<div class="bs-fg">캠페인명 (선택) / #bs-name input</div>` |
+| `reception.html` | `bsAddEntry()` | `const name = ... getElementById('bs-name')` + `getElementById('bs-name').value = ''` |
+| `reception.html` | `bsEntries.push()` | `name` 필드 제거 |
+| `reception.html` | `bsRender()` | `e.name ? td-name ...` 렌더링 제거 |
+| `reception.html` | 검색 필터 | `e.name.toLowerCase().includes(...)` 제거 → MID만 검색 |
+| `reception.html` | 검색 placeholder | `"MID / 캠페인명"` → `"MID 검색"` |
+| `reception.html` | 테이블 헤더 | `"MID / 캠페인명"` → `"MID"` |
+| `reception.html` | 로그 출력 | `${r.name?' ('+r.name+')':''}` 제거 (추가/성공/실패 로그 3곳) |
+| `reception.html` | payload | `name: e.name` 제거 |
+| `bizfit_stop.html` | 입력 폼 | `캠페인명 (선택) / #inp-name input` 제거 |
+| `bizfit_stop.html` | `addEntry()` | `const name`, `inp-name.value = ''` 제거 |
+| `bizfit_stop.html` | `entries.push()` | `name` 필드 제거 |
+| `bizfit_stop.html` | `renderList()` | `e.name ? td-name ...` 제거, 검색 필터에서 `e.name` 제거 |
+| `bizfit_stop.html` | 엑셀 파싱 | `[midRaw, nameRaw, pauseRaw, ...]` → `[midRaw, pauseRaw, ...]` |
+| `bizfit_stop.html` | 엑셀 업로드 힌트 | `"MID / 캠페인명 / ..."` → `"MID / ..."` |
+| `bizfit_stop.html` | 로그 | `${r.name?' ('+r.name+')':''}` 제거 (3곳) |
+| `bizfit_stop.html` | payload | `name: e.name` 제거 |
+
+---
+
+## 7. 강제종료 — 리스트 체크 항목 불러오기 버튼
 
 ### 동작
 강제종료 모달의 "➕ 추가" 버튼 **옆**에 "📋 불러오기" 버튼 추가.  
