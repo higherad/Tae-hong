@@ -133,4 +133,83 @@ midInput.addEventListener('blur', async () => {
 
 ---
 
+## 5. 상품 유형 설정 → 비즈핏 접수 기능
+
+> 참조 소스: `higher/접수관리.html` — `submitDirect()` / `buildNormalRows()` / `kwForProd()` / `executeSubmit()`
+
+### 흐름 요약
+
+```
+상품 유형 설정 패널 [접수] 버튼 클릭
+  → submitDirect()
+    → 체크된 행(없으면 전체 filteredAll) 중 status === 'accepted' 만 추출
+    → openSubmitModal(target)
+      → 대행사별로 buildNormalRows() → 미리보기 팝업 표시
+      → [접수 신청] 클릭 → executeSubmit()
+        → 대행사별 순차 처리:
+            /grade-info  (BizFit 등급 조회)
+            /register    (등급별 순차 등록)
+          → 성공 시 HA.approveSlot(key) → status: 'active'
+```
+
+### 핵심 함수별 역할
+
+| 함수 | 역할 |
+|---|---|
+| `buildNormalRows(slots)` | 슬롯 배열 → BizFit 제출용 행 배열 (상품 배분 포함) |
+| `kwForProd(keywords, prod)` | 검색키워드 쉼표 문자열을 상품별로 분배 (`kwLimit` 또는 `kwPct` 비율) |
+| `allocate(prods, dailyTarget)` | 일목표를 상품 비율대로 배분 (LRM 알고리즘) |
+| `fetchBizfitAccount(agencyId)` | 대행사 ID로 BizFit 로그인 계정 조회 |
+| `callBizfitProxy(path, body)` | BizFit 프록시 서버 호출 (`/grade-info`, `/register`) |
+
+### 검색키워드 분배 로직 (`kwForProd`)
+
+```js
+// higher/접수관리.html:1348 에서 복사
+function kwForProd(keywords, prod) {
+  if (!keywords) return '';
+  const parts = keywords.split(',').map(k => k.trim()).filter(k => k);
+  if (!parts.length) return '';
+
+  // kwLimit 설정된 상품: 앞에서 N개만 잘라서 할당
+  if (prod.kwLimit) return parts.slice(0, prod.kwLimit).join(',');
+
+  // kwPct 비율로 분배 (LRM)
+  const activeOthers = ap().filter(p => !p.fixedAlloc);
+  const totalPct = activeOthers.reduce((s, p) => s + (p.kwPct || 0), 0);
+  if (totalPct === 0) return parts.join(',');   // 비율 없으면 전체 전달
+  const counts = lrm(activeOthers.map(p => ({ id: p.id, ratio: p.kwPct || 0 })), parts.length);
+  let offset = 0;
+  for (const p of activeOthers) {
+    if (p.id === prod.id) return parts.slice(offset, offset + (counts[p.id] || 0)).join(',');
+    offset += counts[p.id] || 0;
+  }
+  return '';
+}
+```
+
+### Tae-hong 구현 시 필요한 것
+
+1. **`store.js`에 `approveSlot()` 추가**
+   ```js
+   async approveSlot(key) {
+     await update(ref(db, `${PATHS.slots}/${key}`), { status: 'active' });
+     dispatch('ha:slots:updated');
+   },
+   ```
+
+2. **BizFit 프록시 서버 URL** — `higher` 버전과 동일한 서버 사용 가능 여부 확인 필요  
+   (CORS에 `tae-hong.kro.kr` 추가 필요할 수 있음)
+
+3. **상품 유형 설정 패널 [접수] 버튼** — 현재 Tae-hong의 `#prod-panel` 고정 행 우측에 추가
+   ```html
+   <button class="action-btn" id="dl-submit-btn"
+     style="background:#EA580C;color:#fff;padding:7px 16px;font-size:12px;flex-shrink:0;"
+     onclick="submitDirect()">접수</button>
+   ```
+
+4. **접수 대상 상태값** — Tae-hong은 `accepted` 대신 `pending` 또는 별도 상태값 사용 여부 결정 필요
+
+---
+
 *마지막 업데이트: 2026-06-26*
