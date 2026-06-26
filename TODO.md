@@ -212,4 +212,77 @@ function kwForProd(keywords, prod) {
 
 ---
 
+## 6. 강제종료 — 리스트 체크 항목 불러오기 버튼
+
+### 동작
+강제종료 모달의 "➕ 추가" 버튼 **옆**에 "📋 불러오기" 버튼 추가.  
+클릭 시 메인 접수 테이블에서 체크된 행의 `mid` / `storeName` 을 `bsEntries`에 일괄 삽입 (중복 MID 건너뜀).
+
+### 버튼 HTML — `reception.html` 강제종료 모달 내 추가 버튼 옆
+
+```html
+<!-- 기존 -->
+<button class="bs-btn-add" onclick="bsAddEntry()">➕ 추가</button>
+
+<!-- 변경 후 -->
+<div style="display:flex;gap:8px;">
+  <button class="bs-btn-add" style="flex:1;" onclick="bsAddEntry()">➕ 추가</button>
+  <button class="bs-btn-add" style="flex:1;background:#0369a1;" onclick="bsLoadFromList()">📋 불러오기</button>
+</div>
+```
+
+### 함수 스니펫 — `bsLoadFromList()`
+
+```js
+// 메인 테이블에서 체크된 슬롯을 강제종료 목록으로 불러옴
+function bsLoadFromList() {
+  // allSlots은 reception.html에서 전체 슬롯을 담는 기존 배열
+  const checkedKeys = new Set(
+    [...document.querySelectorAll('.row-check:checked')].map(el => el.dataset.key)
+  );
+  if (!checkedKeys.size) {
+    bsLog('⚠️ 리스트에서 체크된 항목이 없습니다.', 'warn');
+    return;
+  }
+
+  const existing = new Set(bsEntries.map(e => e.mid));
+  let added = 0, skipped = 0;
+
+  allSlots
+    .filter(s => checkedKeys.has(s._key))
+    .forEach(s => {
+      const mid = (s.mid || '').trim();
+      if (!mid) return;
+      if (existing.has(mid)) { skipped++; return; }
+      bsEntries.push({
+        mid,
+        name:     s.storeName || '',
+        memo:     '',
+        do_pause: bsPause,
+        do_force: bsForce,
+        status:   'ready',
+        result:   '',
+      });
+      existing.add(mid);
+      added++;
+    });
+
+  if (window.bsFbSave) window.bsFbSave(bsEntries);
+  bsRender();
+  bsLog(
+    added
+      ? `📋 불러오기: ${added}개 추가${skipped ? ', ' + skipped + '개 중복 건너뜀' : ''}`
+      : '⚠️ 추가된 항목 없음 (중복)',
+    added ? 'info' : 'warn'
+  );
+}
+```
+
+### 주의사항
+- `allSlots` 변수가 이미 `reception.html` 모듈 스코프에 있으므로 `window.allSlots` 노출 필요  
+  → 모듈 스크립트 내 `window.allSlots = allSlots;` 또는 `bsLoadFromList`를 같은 모듈 내에 정의
+- 체크박스 셀렉터는 현재 `.row-check` + `data-key` 속성 사용 (기존 `bulkApprove()` 패턴과 동일)
+
+---
+
 *마지막 업데이트: 2026-06-26*
