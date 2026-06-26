@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HIGHER AD | 접근</title>
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0f172a;
+      --accent: #10b981;
+      --accent2: #059669;
+      --muted: #94a3b8;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text2: #64748b;
+      --card: #ffffff;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 40px 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .tagline {
+      font-size: 13px;
+      color: var(--text2);
+      font-weight: 500;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+    }
+
+    .login-button {
+      width: 100%;
+      padding: 12px 16px;
+      margin-top: 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      letter-spacing: -0.3px;
+    }
+
+    .login-button:hover {
+      background: var(--accent2);
+    }
+
+    .login-button:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .error-message {
+      display: none;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--danger);
+      line-height: 1.5;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 32px 24px;
+      }
+
+      .logo {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">HIGHER <span>AD</span></div>
+      <div class="tagline">캠페인 접수 관리</div>
+    </div>
+
+    <form id="login-form">
+      <div id="error-box" class="error-message"></div>
+
+      <div class="form-group">
+        <label class="form-label">접근 코드</label>
+        <input
+          type="text"
+          id="code"
+          class="form-input"
+          autocomplete="off"
+          required
+          autofocus
+        />
+      </div>
+
+      <button type="submit" class="login-button" id="login-btn">
+        확인
+      </button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+const loginForm = document.getElementById('login-form');
+const codeInput = document.getElementById('code');
+const loginBtn = document.getElementById('login-btn');
+const errorBox = document.getElementById('error-box');
+
+// 이미 접근한 경우 접수관리로 이동
+const currentUser = JSON.parse(sessionStorage.getItem('ha_current_user') || 'null');
+if (currentUser) {
+  window.location.href = './reception.html';
+}
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const code = codeInput.value.trim();
+
+  if (!code) {
+    showError('코드를 입력해주세요.');
+    return;
+  }
+
+  // kimpro만 허용
+  if (code !== 'kimpro') {
+    showError('유효하지 않은 코드입니다.');
+    codeInput.value = '';
+    codeInput.focus();
+    return;
+  }
+
+  // UI 업데이트
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = '<span class="loading"></span>확인 중...';
+  clearMessages();
+
+  try {
+    // kimpro 코드 확인 → 바로 접근 허용
+    const user = {
+      id: 'kimpro-access',
+      username: 'kimpro',
+      agency: 'kimpro',
+      role: 'admin',
+      approved: true
+    };
+    
+    sessionStorage.setItem('ha_current_user', JSON.stringify(user));
+    
+    // 접수관리 페이지로 이동
+    window.location.href = './reception.html';
+  } catch (error) {
+    showError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    console.error('Access error:', error);
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = '확인';
+  }
+});
+
+function showError(message) {
+  errorBox.textContent = message;
+  errorBox.classList.add('show');
+}
+
+function clearMessages() {
+  errorBox.classList.remove('show');
+}
+
+// Enter 키 처리
+codeInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    loginForm.dispatchEvent(new Event('submit'));
+  }
+});
+</script>
+
+</body>
+</html>
