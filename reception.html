@@ -1098,8 +1098,10 @@ import HA from './store.js';
 </div>
 
 <script type="module">
-// 별도 페이지로 독립 동작 — user-apply.html과 동일한 방식으로 공통 데이터 레이어를 불러옵니다.
 import HA from './store.js';
+
+// 로그인 체크 — 미로그인 시 즉시 로그인 페이지로 이동
+if (!HA.getCurrentUser()) { location.replace('./index.html'); throw new Error('not logged in'); }
 
 // 상품 유형 설정 패널 접기/펼치기
 window.toggleProdPanel = function(e) {
@@ -2937,6 +2939,9 @@ window.closeUexModal = function() {
   }
 
   function byGradeCount(rows, name) { return rows.filter(r => r.상품등급명 === name).length; }
+
+  // URL에서 파일명 숨김 (reception.html → /)
+  if (location.pathname !== '/') history.replaceState(null, '', '/');
 
   // 최초 로드
   renderReceipts(false);
