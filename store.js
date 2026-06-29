@@ -211,15 +211,26 @@ const HA = {
     await remove(ref(db, `tae-hong/settle_snapshots/${key}`));
   },
 
-  async getChargeAccount(username) {
+  async getChargeAccounts(username) {
     const safeU = username.replace(/[.#$[\]/]/g, '_');
     const snap  = await get(ref(db, `tae-hong/charge_accounts/${safeU}`));
-    return snap.exists() ? snap.val() : null;
+    if (!snap.exists()) return {};
+    const val = snap.val();
+    // 구버전 단일 계정 { id, pw } 자동 변환
+    if (val && typeof val.id === 'string') return { _default: { agency: '', id: val.id, pw: val.pw } };
+    return val;
   },
 
-  async saveChargeAccount(username, data) {
+  async saveChargeAccount(username, key, data) {
     const safeU = username.replace(/[.#$[\]/]/g, '_');
-    await set(ref(db, `tae-hong/charge_accounts/${safeU}`), data);
+    const safeK = (key || '_default').replace(/[.#$[\]/]/g, '_');
+    await set(ref(db, `tae-hong/charge_accounts/${safeU}/${safeK}`), data);
+  },
+
+  async deleteChargeAccount(username, key) {
+    const safeU = username.replace(/[.#$[\]/]/g, '_');
+    const safeK = key.replace(/[.#$[\]/]/g, '_');
+    await remove(ref(db, `tae-hong/charge_accounts/${safeU}/${safeK}`));
   },
 
 };

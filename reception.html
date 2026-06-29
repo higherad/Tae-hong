@@ -2655,10 +2655,13 @@ window.closeUexModal = function() {
   const BIZFIT_DOMAIN = 'http://higherad.co.kr';
   const BIZFIT_TAB    = '99';
 
-  async function fetchBizfitAccount() {
+  async function fetchBizfitAccount(agencyId) {
     const cu = window.HA?.getCurrentUser?.();
     if (!cu) return null;
-    return window.HA.getChargeAccount(cu.username).catch(() => null);
+    const accounts = await window.HA.getChargeAccounts(cu.username).catch(() => ({}));
+    const entries  = Object.values(accounts);
+    if (!entries.length) return null;
+    return entries.find(a => a.agency === agencyId) || entries[0];
   }
 
   async function callBizfitProxy(path, body) {
@@ -2860,7 +2863,7 @@ window.closeUexModal = function() {
         return;
       }
 
-      const account = await fetchBizfitAccount();
+      const account = await fetchBizfitAccount(p.realAg);
       if (!account) {
         validRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--danger);">❌ 계정 미등록</span>'; });
         if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">비즈핏 계정 미등록 — 🔑 계정 설정 버튼에서 먼저 등록해주세요.</span>';
@@ -2971,32 +2974,54 @@ window.closeUexModal = function() {
 </script>
 
 <!-- ── 계정 설정 모달 ───────────────────────────────────────────── -->
-<div id="account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9300;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:14px;width:360px;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+<div id="account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9300;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px;">
+  <div style="background:#fff;border-radius:14px;width:660px;max-width:100%;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <div style="font-size:15px;font-weight:700;">🔑 계정 설정</div>
       <button onclick="closeAccountModal()" style="border:none;background:#f1f5f9;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;">✕</button>
     </div>
-    <div style="margin-bottom:12px;">
-      <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">아이디</label>
-      <input type="text" id="acct-id" placeholder="비즈핏 아이디"
-        style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
-        onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'">
-    </div>
-    <div style="margin-bottom:20px;">
-      <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">비밀번호</label>
-      <div style="position:relative;">
-        <input type="password" id="acct-pw" placeholder="비즈핏 비밀번호"
-          style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
-          onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'"
-          onkeydown="if(event.key==='Enter')saveAccountModal()">
-        <button id="acct-pw-toggle" onclick="acctTogglePw()"
-          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:14px;color:var(--text2);padding:0;line-height:1;">👁</button>
+
+    <!-- 입력 폼 -->
+    <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <div id="acct-form-label" style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">새 계정 추가</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:flex-end;">
+        <div>
+          <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:4px;">대행사</label>
+          <input type="text" id="acct-agency" placeholder="대행사명"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:4px;">아이디</label>
+          <input type="text" id="acct-id" placeholder="비즈핏 아이디"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:4px;">비밀번호</label>
+          <div style="position:relative;">
+            <input type="password" id="acct-pw" placeholder="비밀번호"
+              style="width:100%;padding:8px 30px 8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+              onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'"
+              onkeydown="if(event.key==='Enter')saveAccountModal()">
+            <button id="acct-pw-toggle" onclick="acctTogglePw()"
+              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2);padding:0;line-height:1;">👁</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;">
+          <button id="acct-submit-btn" onclick="saveAccountModal()"
+            style="padding:8px 14px;border:none;border-radius:7px;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;">추가</button>
+          <button id="acct-cancel-btn" onclick="resetAcctForm()"
+            style="display:none;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;font-size:12px;font-family:inherit;">취소</button>
+        </div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="closeAccountModal()" style="padding:9px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;">취소</button>
-      <button onclick="saveAccountModal()" style="padding:9px 18px;border:none;border-radius:8px;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">저장</button>
+
+    <!-- 저장된 계정 리스트 -->
+    <div id="acct-list"></div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button onclick="closeAccountModal()" style="padding:9px 20px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;">닫기</button>
     </div>
   </div>
 </div>
@@ -3044,7 +3069,7 @@ window.closeUexModal = function() {
     </div>
     <div class="cm-body">
       <div class="cm-acct-box" style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:12px;color:var(--text2);">계정 : <strong id="cm-acct-display" style="color:var(--text);">-</strong></span>
+        <span style="font-size:12px;color:var(--text2);">등록 계정 : <strong id="cm-acct-display" style="color:var(--text);">-</strong></span>
         <button onclick="openAccountModal()" style="padding:5px 12px;background:#0f766e;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🔑 계정 설정</button>
       </div>
       <div id="charge-agency-list">
@@ -3063,7 +3088,8 @@ import HA from './store.js';
 const CHARGE_SERVER = 'https://macro-1-bizfit-charge-938928195180.asia-northeast3.run.app';
 const safe = s => String(s).replace(/[.#$[\]/]/g, '_');
 
-let _chargeAcct = null; // { id, pw } — 계정 설정에서 저장/로드
+let _chargeAccts = {}; // { [key]: { agency, id, pw } }
+let _editingKey  = null;
 
 function getMinuteKey(iso) {
   if (!iso) return 'unknown';
@@ -3071,23 +3097,107 @@ function getMinuteKey(iso) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-function updateAcctDisplay() {
+function updateChargeAcctCount() {
   const el = document.getElementById('cm-acct-display');
-  if (el) el.textContent = _chargeAcct?.id || '미등록';
+  if (!el) return;
+  const count = Object.keys(_chargeAccts).length;
+  el.textContent = count ? `${count}개 등록됨` : '미등록';
 }
 
 // ── 계정 설정 모달 ──────────────────────────────────────────────
 window.openAccountModal = async function() {
   const cu = HA.getCurrentUser();
-  const acct = await HA.getChargeAccount(cu.username).catch(() => null);
-  document.getElementById('acct-id').value = acct?.id || '';
-  document.getElementById('acct-pw').value = acct?.pw || '';
+  _chargeAccts = await HA.getChargeAccounts(cu.username).catch(() => ({}));
+  renderAcctList();
+  resetAcctForm();
   document.getElementById('account-modal').style.display = 'flex';
-  document.getElementById('acct-id').focus();
 };
 
 window.closeAccountModal = function() {
   document.getElementById('account-modal').style.display = 'none';
+};
+
+window.resetAcctForm = function() {
+  _editingKey = null;
+  document.getElementById('acct-agency').value = '';
+  document.getElementById('acct-id').value = '';
+  document.getElementById('acct-pw').value = '';
+  document.getElementById('acct-pw').type = 'password';
+  document.getElementById('acct-pw-toggle').textContent = '👁';
+  document.getElementById('acct-form-label').textContent = '새 계정 추가';
+  document.getElementById('acct-submit-btn').textContent = '추가';
+  document.getElementById('acct-cancel-btn').style.display = 'none';
+};
+
+function renderAcctList() {
+  const entries = Object.entries(_chargeAccts);
+  const listEl  = document.getElementById('acct-list');
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:8px;">저장된 계정이 없습니다.</div>';
+    return;
+  }
+  listEl.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#f8fafc;">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border);">대행사</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border);">아이디</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border);">비밀번호</th>
+          <th style="padding:8px 10px;border-bottom:1px solid var(--border);"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries.map(([key, a]) => `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:9px 10px;font-weight:600;">${a.agency || '-'}</td>
+            <td style="padding:9px 10px;">${a.id}</td>
+            <td style="padding:9px 10px;color:var(--text2);letter-spacing:2px;">●●●●●●</td>
+            <td style="padding:9px 10px;white-space:nowrap;text-align:right;">
+              <button onclick="editAcct('${key}')" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;font-family:inherit;margin-right:4px;">수정</button>
+              <button onclick="deleteAcct('${key}')" style="padding:5px 10px;border:none;border-radius:6px;background:#fef2f2;color:var(--danger);cursor:pointer;font-size:12px;font-family:inherit;">삭제</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+window.editAcct = function(key) {
+  const a = _chargeAccts[key];
+  if (!a) return;
+  _editingKey = key;
+  document.getElementById('acct-agency').value = a.agency || '';
+  document.getElementById('acct-id').value     = a.id || '';
+  document.getElementById('acct-pw').value     = a.pw || '';
+  document.getElementById('acct-form-label').textContent        = `[${a.agency || a.id}] 수정 중`;
+  document.getElementById('acct-submit-btn').textContent        = '저장';
+  document.getElementById('acct-cancel-btn').style.display      = '';
+  document.getElementById('acct-id').focus();
+};
+
+window.deleteAcct = async function(key) {
+  const a = _chargeAccts[key];
+  if (!confirm(`[${a?.agency || a?.id || key}] 계정을 삭제하시겠습니까?`)) return;
+  const cu = HA.getCurrentUser();
+  await HA.deleteChargeAccount(cu.username, key);
+  delete _chargeAccts[key];
+  renderAcctList();
+  updateChargeAcctCount();
+};
+
+window.saveAccountModal = async function() {
+  const agency = document.getElementById('acct-agency').value.trim();
+  const id     = document.getElementById('acct-id').value.trim();
+  const pw     = document.getElementById('acct-pw').value.trim();
+  if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
+  const cu  = HA.getCurrentUser();
+  const key = _editingKey || (agency ? safe(agency) : `acct_${Date.now()}`);
+  const data = { agency, id, pw };
+  await HA.saveChargeAccount(cu.username, key, data);
+  _chargeAccts[key] = data;
+  renderAcctList();
+  resetAcctForm();
+  updateChargeAcctCount();
 };
 
 window.acctTogglePw = function() {
@@ -3097,17 +3207,6 @@ window.acctTogglePw = function() {
   btn.textContent = inp.type === 'password' ? '👁' : '🙈';
 };
 
-window.saveAccountModal = async function() {
-  const id = document.getElementById('acct-id').value.trim();
-  const pw = document.getElementById('acct-pw').value.trim();
-  if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
-  const cu = HA.getCurrentUser();
-  await HA.saveChargeAccount(cu.username, { id, pw });
-  _chargeAcct = { id, pw };
-  updateAcctDisplay();
-  closeAccountModal();
-};
-
 document.getElementById('account-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('account-modal')) closeAccountModal();
 });
@@ -3115,11 +3214,9 @@ document.getElementById('account-modal').addEventListener('click', e => {
 // ── 충전하기 모달 ──────────────────────────────────────────────
 window.openChargeModal = async function() {
   document.getElementById('charge-modal').style.display = 'flex';
-  if (!_chargeAcct) {
-    const cu = HA.getCurrentUser();
-    _chargeAcct = await HA.getChargeAccount(cu.username).catch(() => null);
-  }
-  updateAcctDisplay();
+  const cu = HA.getCurrentUser();
+  _chargeAccts = await HA.getChargeAccounts(cu.username).catch(() => ({}));
+  updateChargeAcctCount();
   buildChargeList();
 };
 
@@ -3130,24 +3227,6 @@ window.closeChargeModal = function() {
 document.getElementById('charge-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('charge-modal')) closeChargeModal();
 });
-
-window.cmTogglePw = function() {
-  const inp = document.getElementById('cm-pw');
-  const btn = document.getElementById('cm-pw-toggle');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
-};
-
-window.cmSaveAcct = async function() {
-  const id = document.getElementById('cm-id').value.trim();
-  const pw = document.getElementById('cm-pw').value.trim();
-  if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
-  const cu = HA.getCurrentUser();
-  await HA.saveChargeAccount(cu.username, { id, pw });
-  const msg = document.getElementById('cm-save-msg');
-  msg.style.display = 'inline';
-  setTimeout(() => { msg.style.display = 'none'; }, 2000);
-};
 
 async function buildChargeList() {
   const listEl = document.getElementById('charge-agency-list');
@@ -3201,6 +3280,13 @@ async function buildChargeList() {
     const allCharged    = chargedCount === groupList.length;
     const someCharged   = chargedCount > 0 && !allCharged;
 
+    // 매칭 계정 찾기: 대행사명 일치 우선 → 1개뿐이면 자동 선택
+    const acctList  = Object.values(_chargeAccts);
+    const matchAcct = acctList.find(a => a.agency === agKey) || (acctList.length === 1 ? acctList[0] : null);
+    const acctTag   = matchAcct
+      ? `<span style="font-size:11px;color:var(--text2);flex-shrink:0;">계정: <strong style="color:var(--text);">${matchAcct.id}</strong></span>`
+      : `<span style="font-size:11px;color:var(--danger);flex-shrink:0;">계정 미등록</span>`;
+
     const block = document.createElement('div');
     block.className = 'cm-agency-block';
 
@@ -3225,7 +3311,8 @@ async function buildChargeList() {
         입금액(VAT 포함) <strong style="color:var(--info)">${Math.round(totalAmt*1.1).toLocaleString()}원</strong>
       </div>
       <div class="cm-agency-action">
-        <input type="text" inputmode="numeric" class="cm-amt-input" value="${Math.round(totalAmt)}" placeholder="충전 금액 (원)">
+        ${acctTag}
+        <input type="text" inputmode="numeric" class="cm-amt-input" value="${Math.round(totalAmt)}" placeholder="충전 금액 (원)" style="flex:1;min-width:0;">
         <button class="cm-charge-btn" ${allCharged ? 'disabled' : ''}>${allCharged ? '✅ 완료' : '⚡ 충전'}</button>
         <span class="cm-result"></span>
       </div>`;
@@ -3242,8 +3329,13 @@ async function buildChargeList() {
 
     // 충전 버튼
     block.querySelector('.cm-charge-btn').onclick = async function() {
-      if (!_chargeAcct?.id || !_chargeAcct?.pw) { alert('계정을 먼저 설정해주세요. (🔑 계정 설정)'); return; }
-      const { id, pw } = _chargeAcct;
+      const accts = Object.values(_chargeAccts);
+      const acct  = accts.find(a => a.agency === agKey) || (accts.length === 1 ? accts[0] : null);
+      if (!acct?.id || !acct?.pw) {
+        alert(`[${agDisp}]에 매칭된 계정이 없습니다.\n🔑 계정 설정에서 대행사명을 일치시켜 등록해주세요.`);
+        return;
+      }
+      const { id, pw } = acct;
       const amtStr = block.querySelector('.cm-amt-input').value.replace(/[^0-9]/g,'');
       const amount = parseInt(amtStr);
       if (!amount || amount <= 0) { alert('충전 금액을 입력해주세요.'); return; }
