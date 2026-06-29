@@ -96,15 +96,15 @@
       <span class="badge-label">paused</span>
     </div>
     <div class="badge-item">
-      <span class="status-badge s-pending">재접수|대기</span>
+      <span class="status-badge s-pending">재접수 | 대기</span>
       <span class="badge-label">requeue</span>
     </div>
     <div class="badge-item">
-      <span class="status-badge s-accepted">재접수|접수</span>
+      <span class="status-badge s-accepted">재접수 | 접수</span>
       <span class="badge-label">isRequeue + accepted</span>
     </div>
     <div class="badge-item">
-      <span class="status-badge s-active">재접수|승인</span>
+      <span class="status-badge s-active">재접수 | 승인</span>
       <span class="badge-label">isRequeue + active</span>
     </div>
     <div class="badge-item">
@@ -162,19 +162,19 @@
         <td style="color:var(--muted);font-size:11px">임시중단B 매크로만</td>
       </tr>
       <tr>
-        <td><span class="status-badge s-pending">재접수|대기</span></td>
+        <td><span class="status-badge s-pending">재접수 | 대기</span></td>
         <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-accept">접수</button></div></td>
         <td style="color:var(--muted);font-size:11px">강제종료 후 자동 생성</td>
       </tr>
       <tr>
-        <td><span class="status-badge s-accepted">재접수|접수</span></td>
+        <td><span class="status-badge s-accepted">재접수 | 접수</span></td>
         <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-back">대기</button><button class="action-btn btn-approve">승인</button></div></td>
-        <td style="color:var(--muted);font-size:11px">대기 클릭 시 재접수|대기 복귀</td>
+        <td style="color:var(--muted);font-size:11px">대기 클릭 시 재접수 | 대기 복귀</td>
       </tr>
       <tr>
-        <td><span class="status-badge s-active">재접수|승인</span></td>
+        <td><span class="status-badge s-active">재접수 | 승인</span></td>
         <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-back">대기</button><button class="action-btn btn-accept">접수</button></div></td>
-        <td style="color:var(--muted);font-size:11px">대기 클릭 시 재접수|대기 복귀</td>
+        <td style="color:var(--muted);font-size:11px">대기 클릭 시 재접수 | 대기 복귀</td>
       </tr>
       <tr>
         <td><span class="status-badge s-ended">종료</span></td>
@@ -224,19 +224,19 @@
       <div class="flow-node fn-force_stopped" style="padding:4px 12px;font-size:11px;">강제종료</div>
     </div>
   </div>
-  <div style="font-size:10px;color:var(--muted);margin-top:4px;">* 강제종료 포함 시, 잔여 일수 있으면 → 재접수|대기 슬롯 자동 생성</div>
+  <div style="font-size:10px;color:var(--muted);margin-top:4px;">* 강제종료 포함 시, 잔여 일수 있으면 → 재접수 | 대기 슬롯 자동 생성</div>
 
   <div class="divider"></div>
 
   <div class="flow-group-label">재접수 사이클 (isRequeue 플래그 유지)</div>
   <div class="flow">
-    <div class="flow-node fn-requeue_w">재접수|대기</div>
+    <div class="flow-node fn-requeue_w">재접수 | 대기</div>
     <span class="flow-arrow">→ 접수 →</span>
-    <div class="flow-node fn-requeue_a">재접수|접수</div>
+    <div class="flow-node fn-requeue_a">재접수 | 접수</div>
     <span class="flow-arrow">→ 승인 →</span>
-    <div class="flow-node fn-requeue_p">재접수|승인</div>
+    <div class="flow-node fn-requeue_p">재접수 | 승인</div>
     <span class="flow-arrow">→ 대기 →</span>
-    <div class="flow-node fn-requeue_w">재접수|대기</div>
+    <div class="flow-node fn-requeue_w">재접수 | 대기</div>
   </div>
 </div>
 
@@ -250,9 +250,9 @@
     <option>승인</option>
     <option>강제종료</option>
     <option>임시중단</option>
-    <option>재접수|대기</option>
-    <option>재접수|접수</option>
-    <option>재접수|승인</option>
+    <option>재접수 | 대기</option>
+    <option>재접수 | 접수</option>
+    <option>재접수 | 승인</option>
     <option>종료</option>
   </select>
 </div>

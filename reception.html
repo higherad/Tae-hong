@@ -1117,7 +1117,7 @@ window.closeUexModal = function() {
     active:        '<span class="status-badge s-active">승인</span>',
     force_stopped: '<span class="status-badge s-force-stopped">강제종료</span>',
     paused:        '<span class="status-badge s-paused">임시중단</span>',
-    requeue:       '<span class="status-badge s-pending">재접수|대기</span>',
+    requeue:       '<span class="status-badge s-pending">재접수 | 대기</span>',
     ended:         '<span class="status-badge s-ended">종료</span>',
     expired:       '<span class="status-badge s-ended">종료</span>',
   };
@@ -1130,7 +1130,7 @@ window.closeUexModal = function() {
       const labelMap = { accepted: '접수',        active: '승인',     pending: '대기' };
       const cls   = classMap[s.status] || 's-pending';
       const label = labelMap[s.status] || s.status;
-      return `<span class="status-badge ${cls}">재접수|${label}</span>`;
+      return `<span class="status-badge ${cls}">재접수 | ${label}</span>`;
     }
     return stMap[s.status] || s.status;
   }
