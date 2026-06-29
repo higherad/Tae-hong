@@ -53,7 +53,12 @@ async function renderRankTable(rankPath, area) {
   if (!area) return;
   try {
     const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js');
-    const snap = await get(ref(getDatabase(), rankPath));
+    const { getApp } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js');
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js');
+    const app  = getApp();
+    const auth = getAuth(app);
+    await auth.authStateReady();
+    const snap = await get(ref(getDatabase(app), rankPath));
 
     if (!snap.exists()) {
       area.innerHTML = `<div class="rank-empty">저장된 순위 데이터가 없습니다.<br><small style="color:var(--muted)">매일 오후 자동으로 업데이트됩니다.</small></div>`;
