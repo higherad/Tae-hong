@@ -63,6 +63,7 @@
   .s-active        { background:rgba(16,185,129,.1);  color:#059669; }
   .s-force-stopped { background:rgba(239,68,68,.1);   color:#dc2626; }
   .s-paused        { background:rgba(124,58,237,.1);  color:#7c3aed; }
+  .s-requeue       { background:rgba(20,184,166,.1);  color:#0f766e; }
   .s-ended         { background:#f1f5f9; color:#64748b; }
   .s-expired       { background:#f1f5f9; color:#64748b; }
   #receipt-page.guest-mode .rank-col { display:none; }
@@ -810,7 +811,7 @@ document.addEventListener('keydown', function(e) {
     bsLog('⚠️ 서버 연결 실패 — 잠시 후 다시 시도해주세요.', 'warn');
   })();
 
-  // 강제종료 성공 시 해당 MID 슬롯 상태 자동 변경
+  // 강제종료 성공 시 해당 MID 슬롯 상태 자동 변경 + 재접수 슬롯 생성
   async function onBsEntrySuccess(mid) {
     if (!window.HA) return;
     const entry    = bsEntries.find(e => e.mid === mid);
@@ -823,6 +824,7 @@ document.addEventListener('keydown', function(e) {
       const slots   = await window.HA.getSlots();
       const targets = slots.filter(s => s.mid === mid && s.status !== 'ended' && s.status !== 'force_stopped');
       for (const s of targets) {
+        const originalEndDate = s.endDate || '';
         let patch = {};
         if (didForce && didPause) {
           patch = { status: 'force_stopped', paused: true, endDate: tomorrowStr };
@@ -832,6 +834,36 @@ document.addEventListener('keydown', function(e) {
           patch = { status: 'paused' };
         }
         if (Object.keys(patch).length) await window.HA.updateSlot(s._key, patch);
+
+        // 강제종료가 포함된 경우에만 재접수 슬롯 생성
+        if (didForce && originalEndDate) {
+          const origEnd    = new Date(originalEndDate);
+          const tmrw       = new Date(tomorrowStr);
+          const remainDays = Math.round((origEnd - tmrw) / 86400000);
+          if (remainDays >= 1) {
+            const newStart = new Date(tomorrowStr);
+            newStart.setDate(newStart.getDate() + 1);
+            const newStartStr = newStart.toISOString().slice(0, 10);
+            const newSlot = await window.HA.addSlot({
+              agencyId:      s.agencyId      || '',
+              userId:        s.userId        || '',
+              storeName:     s.storeName     || '',
+              url:           s.url           || '',
+              mid:           s.mid           || '',
+              rankKeyword:   s.rankKeyword   || '',
+              searchKeyword: s.searchKeyword || '',
+              dailyTarget:   s.dailyTarget   || 0,
+              days:          remainDays,
+              startDate:     newStartStr,
+              endDate:       originalEndDate,
+              memo:          '강제종료 후 재접수',
+            });
+            // addSlot은 pending으로 저장하므로 requeue로 덮어씀
+            if (newSlot && newSlot._key) {
+              await window.HA.updateSlot(newSlot._key, { status: 'requeue' });
+            }
+          }
+        }
       }
       if (window.renderReceipts) window.renderReceipts(false, true);
     } catch(e) { console.error('onBsEntrySuccess 오류:', e); }
@@ -930,6 +962,7 @@ document.addEventListener('keydown', function(e) {
     <option value="active">승인</option>
     <option value="force_stopped">강제종료</option>
     <option value="paused">임시중단</option>
+    <option value="requeue">재접수 대기</option>
     <option value="ended">종료</option>
   </select>
   <select id="filter-slot-type" onchange="renderReceipts()" disabled>
@@ -1065,6 +1098,7 @@ window.closeUexModal = function() {
     active:        '<span class="status-badge s-active">승인</span>',
     force_stopped: '<span class="status-badge s-force-stopped">강제종료</span>',
     paused:        '<span class="status-badge s-paused">임시중단</span>',
+    requeue:       '<span class="status-badge s-requeue">재접수 대기</span>',
     ended:         '<span class="status-badge s-ended">종료</span>',
     expired:       '<span class="status-badge s-ended">종료</span>',
   };
@@ -1340,6 +1374,9 @@ window.closeUexModal = function() {
               ` : ''}
               ${(s.status==='force_stopped' || s.status==='paused') ? `
                 <button class="action-btn btn-approve" onclick="approveOne('${s._key}')">승인</button>
+              ` : ''}
+              ${s.status==='requeue' ? `
+                <button class="action-btn" style="background:rgba(59,130,246,.15);color:#1d4ed8;" onclick="acceptOne('${s._key}')">접수</button>
               ` : ''}
             </div>
           </td>
