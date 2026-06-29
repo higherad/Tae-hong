@@ -62,6 +62,7 @@
   .s-accepted      { background:rgba(59,130,246,.1);  color:#1d4ed8; }
   .s-active        { background:rgba(16,185,129,.1);  color:#059669; }
   .s-force-stopped { background:rgba(239,68,68,.1);   color:#dc2626; }
+  .s-paused        { background:rgba(245,158,11,.1);  color:#b45309; }
   .s-ended         { background:#f1f5f9; color:#64748b; }
   .s-expired       { background:#f1f5f9; color:#64748b; }
   #receipt-page.guest-mode .rank-col { display:none; }
@@ -809,17 +810,28 @@ document.addEventListener('keydown', function(e) {
     bsLog('⚠️ 서버 연결 실패 — 잠시 후 다시 시도해주세요.', 'warn');
   })();
 
-  // 강제종료 성공 시 해당 MID 슬롯 상태 자동 변경 + 익일 종료
+  // 강제종료 성공 시 해당 MID 슬롯 상태 자동 변경
   async function onBsEntrySuccess(mid) {
     if (!window.HA) return;
+    const entry    = bsEntries.find(e => e.mid === mid);
+    const didForce = entry ? !!entry.do_force : true;
+    const didPause = entry ? !!entry.do_pause : false;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().slice(0, 10);
     try {
-      const slots = await window.HA.getSlots();
+      const slots   = await window.HA.getSlots();
       const targets = slots.filter(s => s.mid === mid && s.status !== 'ended' && s.status !== 'force_stopped');
       for (const s of targets) {
-        await window.HA.updateSlot(s._key, { status: 'force_stopped', endDate: tomorrowStr });
+        let patch = {};
+        if (didForce && didPause) {
+          patch = { status: 'force_stopped', paused: true, endDate: tomorrowStr };
+        } else if (didForce) {
+          patch = { status: 'force_stopped', endDate: tomorrowStr };
+        } else if (didPause) {
+          patch = { status: 'paused' };
+        }
+        if (Object.keys(patch).length) await window.HA.updateSlot(s._key, patch);
       }
       if (window.renderReceipts) window.renderReceipts(false, true);
     } catch(e) { console.error('onBsEntrySuccess 오류:', e); }
@@ -917,6 +929,7 @@ document.addEventListener('keydown', function(e) {
     <option value="accepted">접수</option>
     <option value="active">승인</option>
     <option value="force_stopped">강제종료</option>
+    <option value="paused">임시중단</option>
     <option value="ended">종료</option>
   </select>
   <select id="filter-slot-type" onchange="renderReceipts()" disabled>
@@ -1051,9 +1064,16 @@ window.closeUexModal = function() {
     accepted:      '<span class="status-badge s-accepted">접수</span>',
     active:        '<span class="status-badge s-active">승인</span>',
     force_stopped: '<span class="status-badge s-force-stopped">강제종료</span>',
+    paused:        '<span class="status-badge s-paused">임시중단</span>',
     ended:         '<span class="status-badge s-ended">종료</span>',
     expired:       '<span class="status-badge s-ended">종료</span>',
   };
+  function statusBadge(s) {
+    if (s.status === 'force_stopped' && s.paused) {
+      return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.force_stopped}${stMap.paused}</div>`;
+    }
+    return stMap[s.status] || s.status;
+  }
 
   // ── 등급 배지 ────────────────────────────────────────────────
   const GRADE_CACHE = new Map();
@@ -1303,7 +1323,7 @@ window.closeUexModal = function() {
           <td style="color:var(--text2)">${s.startDate||'-'}</td>
           <td style="color:var(--text2)">${s.endDate||'-'}</td>
           <td style="color:var(--text2)">${s.dailyTarget ? s.dailyTarget.toLocaleString() : '-'}</td>
-          <td>${stMap[s.status]||s.status}</td>
+          <td>${statusBadge(s)}</td>
           <td>
             <div style="display:flex;gap:5px;justify-content:center;">
               <button class="action-btn" style="background:#f1f5f9;color:var(--text2);" onclick="viewDetail('${s._key}')">상세</button>
@@ -1317,6 +1337,9 @@ window.closeUexModal = function() {
               ${s.status==='active' ? `
                 <button class="action-btn" style="background:rgba(245,158,11,.15);color:#b45309;" onclick="changeStatusTo('${s._key}','pending')">대기</button>
                 <button class="action-btn" style="background:rgba(59,130,246,.15);color:#1d4ed8;" onclick="acceptOne('${s._key}')">접수</button>
+              ` : ''}
+              ${s.status==='force_stopped' ? `
+                <button class="action-btn btn-approve" onclick="approveOne('${s._key}')">승인</button>
               ` : ''}
             </div>
           </td>
@@ -1485,7 +1508,7 @@ window.closeUexModal = function() {
           <dt>일 목표</dt><dd>${s.dailyTarget ? s.dailyTarget.toLocaleString() : '-'}</dd>
           <dt>일 수</dt><dd>${s.days||'-'}</dd>
           <dt>기간</dt><dd>${s.startDate} ~ ${s.endDate}</dd>
-          <dt>상태</dt><dd>${stMap[s.status]||s.status}</dd>
+          <dt>상태</dt><dd>${statusBadge(s)}</dd>
           <dt>메모</dt><dd>${s.memo||'-'}</dd>
           <dt style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
             <span style="display:flex;align-items:center;gap:6px;">
