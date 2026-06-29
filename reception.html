@@ -947,7 +947,7 @@ document.addEventListener('keydown', function(e) {
   <div class="dl-prog-lbl" id="dl-prog-lbl"></div>
 </div>
 
-<div class="stat-bar" id="receipt-stat-bar" style="grid-template-columns:repeat(4,1fr)">
+<div class="stat-bar" id="receipt-stat-bar" style="grid-template-columns:repeat(8,1fr)">
   <div class="stat-box">
     <div class="sb-icon" style="background:rgba(245,158,11,.1)">⏳</div>
     <div><div class="sb-label">대기</div><div class="sb-val" id="stat-pending" style="color:var(--warn)">-</div></div>
@@ -963,6 +963,22 @@ document.addEventListener('keydown', function(e) {
   <div class="stat-box">
     <div class="sb-icon" style="background:rgba(245,158,11,.08)">🔄</div>
     <div><div class="sb-label">재접수 대기</div><div class="sb-val" id="stat-requeue" style="color:#b45309">-</div></div>
+  </div>
+  <div class="stat-box">
+    <div class="sb-icon" style="background:rgba(59,130,246,.08)">🔄</div>
+    <div><div class="sb-label">재접수 접수</div><div class="sb-val" id="stat-requeue-accepted" style="color:#1d4ed8">-</div></div>
+  </div>
+  <div class="stat-box">
+    <div class="sb-icon" style="background:rgba(16,185,129,.08)">🔄</div>
+    <div><div class="sb-label">재접수 승인</div><div class="sb-val" id="stat-requeue-active" style="color:var(--accent)">-</div></div>
+  </div>
+  <div class="stat-box">
+    <div class="sb-icon" style="background:rgba(124,58,237,.1)">⏸</div>
+    <div><div class="sb-label">임시중단</div><div class="sb-val" id="stat-paused" style="color:#7c3aed">-</div></div>
+  </div>
+  <div class="stat-box">
+    <div class="sb-icon" style="background:rgba(239,68,68,.1)">🛑</div>
+    <div><div class="sb-label">강제종료</div><div class="sb-val" id="stat-force-stopped" style="color:#dc2626">-</div></div>
   </div>
 </div>
 
@@ -1347,14 +1363,22 @@ window.closeUexModal = function() {
 
     const all      = getFiltered();
     filteredAll    = all;
-    const pending  = allSlots.filter(s => s.status === 'pending' && !s.isRequeue).length;
-    const accepted = allSlots.filter(s => s.status === 'accepted' && !s.isRequeue).length;
-    const active   = allSlots.filter(s => s.status === 'active' && !s.isRequeue).length;
-    const requeue  = allSlots.filter(s => s.status === 'requeue').length;
-    document.getElementById('stat-pending').textContent  = pending.toLocaleString();
-    document.getElementById('stat-accepted').textContent = accepted.toLocaleString();
-    document.getElementById('stat-active').textContent   = active.toLocaleString();
-    document.getElementById('stat-requeue').textContent  = requeue.toLocaleString();
+    const pending         = allSlots.filter(s => s.status === 'pending'      && !s.isRequeue).length;
+    const accepted        = allSlots.filter(s => s.status === 'accepted'     && !s.isRequeue).length;
+    const active          = allSlots.filter(s => s.status === 'active'       && !s.isRequeue).length;
+    const requeue         = allSlots.filter(s => s.status === 'requeue').length;
+    const requeueAccepted = allSlots.filter(s => s.isRequeue && s.status === 'accepted').length;
+    const requeueActive   = allSlots.filter(s => s.isRequeue && s.status === 'active').length;
+    const paused          = allSlots.filter(s => s.status === 'paused').length;
+    const forceStopped    = allSlots.filter(s => s.status === 'force_stopped').length;
+    document.getElementById('stat-pending').textContent          = pending.toLocaleString();
+    document.getElementById('stat-accepted').textContent         = accepted.toLocaleString();
+    document.getElementById('stat-active').textContent           = active.toLocaleString();
+    document.getElementById('stat-requeue').textContent          = requeue.toLocaleString();
+    document.getElementById('stat-requeue-accepted').textContent = requeueAccepted.toLocaleString();
+    document.getElementById('stat-requeue-active').textContent   = requeueActive.toLocaleString();
+    document.getElementById('stat-paused').textContent           = paused.toLocaleString();
+    document.getElementById('stat-force-stopped').textContent    = forceStopped.toLocaleString();
 
     const start = (currentPage-1)*PER_PAGE;
     const page  = all.slice(start, start+PER_PAGE);
