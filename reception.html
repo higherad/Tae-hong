@@ -1104,7 +1104,7 @@ window.closeUexModal = function() {
   };
   function statusBadge(s) {
     if (s.status === 'force_stopped' && s.paused) {
-      return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.force_stopped}${stMap.paused}</div>`;
+      return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.paused}${stMap.force_stopped}</div>`;
     }
     return stMap[s.status] || s.status;
   }
