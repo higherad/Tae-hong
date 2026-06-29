@@ -58,10 +58,12 @@
   #receipt-page tbody tr:last-child td { border-bottom:none; }
   #receipt-page tbody tr:hover { background:#f8fafc; }
   .status-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; }
-  .s-pending   { background:rgba(245,158,11,.1);  color:#b45309; }
-  .s-accepted  { background:rgba(59,130,246,.1);  color:#1d4ed8; }
-  .s-active    { background:rgba(16,185,129,.1);  color:#059669; }
-  .s-expired   { background:#f1f5f9; color:#64748b; }
+  .s-pending       { background:rgba(245,158,11,.1);  color:#b45309; }
+  .s-accepted      { background:rgba(59,130,246,.1);  color:#1d4ed8; }
+  .s-active        { background:rgba(16,185,129,.1);  color:#059669; }
+  .s-force-stopped { background:rgba(239,68,68,.1);   color:#dc2626; }
+  .s-ended         { background:#f1f5f9; color:#64748b; }
+  .s-expired       { background:#f1f5f9; color:#64748b; }
   #receipt-page.guest-mode .rank-col { display:none; }
   .action-btn { padding:4px 10px; border-radius:5px; border:none; font-size:11px; font-weight:600; cursor:pointer; transition:.15s; }
   .btn-approve { background:var(--accent); color:#fff; }
@@ -240,7 +242,7 @@
       <div class="uex-info">
         <div class="uex-info-text">
           <strong>엑셀 양식 컬럼 순서</strong><br>
-          대행사 / 업체명 / URL / MID / 순위키워드 / 일 수 / 시작일 / 일 목표
+          대행사 / 업체명 / URL / MID / 순위키워드 / 일 수 / 시작일 / 일 목표 / 검색키워드
         </div>
       </div>
       <div class="uex-zone" id="uex-zone" onclick="document.getElementById('uex-file').click()">
@@ -258,7 +260,7 @@
                 <th style="width:30px">#</th>
                 <th>대행사</th><th>업체명</th><th>URL</th><th style="width:100px">MID</th>
                 <th>순위키워드</th><th style="width:50px">일수</th><th style="width:86px">시작일</th>
-                <th style="width:86px">종료일</th><th style="width:70px">일목표</th><th style="width:160px">상태</th>
+                <th style="width:86px">종료일</th><th style="width:70px">일목표</th><th>검색키워드</th><th style="width:160px">상태</th>
               </tr>
             </thead>
             <tbody id="uex-preview-body"></tbody>
@@ -283,6 +285,7 @@
     <div class="prod-ph-actions" onclick="event.stopPropagation()" style="display:flex;gap:6px;">
       <button class="action-btn" style="background:var(--info);color:#fff;font-size:11px;padding:4px 10px;" onclick="showAddProdModal()">＋ 상품 추가</button>
       <button class="action-btn" style="background:#475569;color:#fff;font-size:11px;padding:4px 10px;" onclick="showAddProdGroup()">＋ 그룹 추가</button>
+      <button class="action-btn" id="dl-submit-btn" style="background:#EA580C;color:#fff;padding:7px 16px;font-size:12px;flex-shrink:0;" onclick="submitDirect()">접수</button>
     </div>
   </div>
   <div class="prod-pb">
@@ -416,10 +419,6 @@
             <input type="text" id="bs-mid" placeholder="예: 1839711962">
           </div>
           <div class="bs-fg">
-            <label>캠페인명 (선택)</label>
-            <input type="text" id="bs-name" placeholder="메모용">
-          </div>
-          <div class="bs-fg">
             <label>메모 (선택)</label>
             <input type="text" id="bs-memo" placeholder="비우면 오늘 날짜 자동 입력">
           </div>
@@ -428,13 +427,16 @@
             <div class="bs-tog-lbl" id="bs-lbl-pause" onclick="bsToggleAction('pause')">⏸ 임시중단B</div>
             <div class="bs-tog-lbl" id="bs-lbl-force" onclick="bsToggleAction('force')">🛑 강제종료</div>
           </div>
-          <button class="bs-btn-add" onclick="bsAddEntry()">➕ 추가</button>
+          <div style="display:flex;gap:8px;">
+            <button class="bs-btn-add" style="flex:1;" onclick="bsAddEntry()">➕ 추가</button>
+            <button class="bs-btn-add" style="flex:1;background:#0369a1;" onclick="bsLoadFromList()">📋 불러오기</button>
+          </div>
           <hr class="bs-divider">
           <div class="bs-sec-lbl">📂 엑셀 등록</div>
           <div class="bs-upload-zone" id="bs-drop-zone" onclick="document.getElementById('bs-file').click()">
             <div class="uz-icon">📊</div>
             <div class="uz-text">클릭 또는 드래그 업로드</div>
-            <div class="uz-hint">MID / 캠페인명 / 임시중단B(O) / 강제종료(O) / 메모</div>
+            <div class="uz-hint">MID / 임시중단B(O) / 강제종료(O) / 메모</div>
           </div>
           <input type="file" id="bs-file" accept=".xlsx,.xls" style="display:none" onchange="bsHandleExcel(this.files[0])">
         </div>
@@ -446,7 +448,7 @@
           <span class="bs-card-title">📋 처리 목록 <span class="bs-badge" id="bs-entry-count">0</span></span>
           <div class="bs-search">
             <span style="font-size:11px">🔍</span>
-            <input type="text" placeholder="MID / 캠페인명" oninput="bsFilterList(this.value)">
+            <input type="text" placeholder="MID 검색" oninput="bsFilterList(this.value)">
           </div>
         </div>
         <div class="bs-sel-row">
@@ -462,7 +464,7 @@
             <thead>
               <tr>
                 <th style="width:34px"></th>
-                <th>MID / 캠페인명</th>
+                <th>MID</th>
                 <th>처리 작업</th>
                 <th style="width:68px">상태</th>
               </tr>
@@ -545,18 +547,16 @@ document.addEventListener('keydown', function(e) {
 
   window.bsAddEntry = function() {
     const mid  = document.getElementById('bs-mid').value.trim();
-    const name = document.getElementById('bs-name').value.trim();
     const memo = document.getElementById('bs-memo').value.trim();
     if (!mid) { alert('MID를 입력해주세요.'); return; }
     if (!bsPause && !bsForce && !memo) { alert('처리 작업을 선택하거나 메모를 입력해주세요.'); return; }
-    bsEntries.push({ mid, name, memo, do_pause: bsPause, do_force: bsForce, status: 'ready', result: '' });
+    bsEntries.push({ mid, memo, do_pause: bsPause, do_force: bsForce, status: 'ready', result: '' });
     bsSave();
     document.getElementById('bs-mid').value = '';
-    document.getElementById('bs-name').value = '';
     document.getElementById('bs-memo').value = '';
     bsRender();
     const act = [bsPause?'임시중단B':'', bsForce?'강제종료':''].filter(Boolean).join('+') || '메모만';
-    bsLog(`추가: ${mid}${name?' ('+name+')':''} — ${act}`, 'info');
+    bsLog(`추가: ${mid} — ${act}`, 'info');
   };
 
   window.bsRemoveChecked = function() {
@@ -606,7 +606,7 @@ document.addEventListener('keydown', function(e) {
       bsSyncAll(); return;
     }
     const list = bsSearchQ
-      ? bsEntries.filter(e => e.mid.includes(bsSearchQ) || e.name.toLowerCase().includes(bsSearchQ))
+      ? bsEntries.filter(e => e.mid.includes(bsSearchQ))
       : bsEntries;
     if (!list.length) {
       tbody.innerHTML = '<tr><td colspan="4"><div class="bs-empty">🔍 검색 결과가 없습니다.</div></td></tr>';
@@ -620,7 +620,6 @@ document.addEventListener('keydown', function(e) {
         <td><input type="checkbox" ${e.checked?'checked':''} onchange="bsToggleItem(${i},this)" style="width:14px;height:14px;accent-color:#7b1fa2;cursor:pointer;"></td>
         <td>
           <div class="bs-td-mid">${bsEsc(e.mid)}</div>
-          ${e.name?`<div class="bs-td-name">${bsEsc(e.name)}</div>`:''}
           ${e.result?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${bsEsc(e.result)}</div>`:''}
         </td>
         <td>
@@ -652,16 +651,16 @@ document.addEventListener('keydown', function(e) {
     if (!selected.length) { alert('선택한 항목이 모두 완료 상태입니다.'); return; }
     const summary = selected.map(e => {
       const acts = [e.do_pause?'임시중단B':'', e.do_force?'강제종료':''].filter(Boolean).join('+') || '메모만';
-      return `  · ${e.mid}${e.name?' ('+e.name+')':''}: ${acts}`;
+      return `  · ${e.mid}: ${acts}`;
     }).join('\n');
     if (!confirm(`아래 항목을 처리하시겠습니까?\n\n${summary}\n\n총 ${selected.length}건${skipped?` (완료된 ${skipped}건은 건너뜀)`:''}`)) return;
 
     document.getElementById('bs-btn-run').disabled = true;
     document.getElementById('bs-prog-wrap').style.display = 'block';
-    const payload = selected.map(e => ({ mid: e.mid, name: e.name, memo: e.memo||'', do_pause: e.do_pause, do_force: e.do_force }));
+    const payload = selected.map(e => ({ mid: e.mid, memo: e.memo||'', do_pause: e.do_pause, do_force: e.do_force }));
     selected.forEach(e => { e.status = 'running'; e.result = ''; });
     bsRender();
-    bsLog(`▶ 시작 — ${selected.length}개 항목${skipped?` (완료 ${skipped}건 건너뜀)`:''}`, 'info');
+    bsLog(`▶ 시작 — ${selected.length}개 항목${skipped?' (완료 '+skipped+'건 건너뜀)':''}`, 'info');
     document.getElementById('bs-prog-bar').style.width = '10%';
     document.getElementById('bs-prog-txt').textContent = '로그인 중...';
 
@@ -694,11 +693,12 @@ document.addEventListener('keydown', function(e) {
               entry.result = r.message;
               if (r.success) {
                 entry.status = 'success'; successCnt++;
-                bsLog(`✅ ${r.mid}${r.name?' ('+r.name+')':''} — ${r.message}`, 'success');
+                bsLog(`✅ ${r.mid} — ${r.message}`, 'success');
+                onBsEntrySuccess(r.mid).catch(err => console.error('onBsEntrySuccess 오류:', err));
               } else {
                 const isPartial = r.message.includes('OK') && r.message.includes('실패');
                 entry.status = isPartial ? 'partial' : 'fail'; failCnt++;
-                bsLog(`${isPartial?'⚠️':'❌'} ${r.mid}${r.name?' ('+r.name+')':''} — ${r.message}`, isPartial?'warn':'fail');
+                bsLog(`${isPartial?'⚠️':'❌'} ${r.mid} — ${r.message}`, isPartial?'warn':'fail');
               }
             }
             processed++;
@@ -745,15 +745,14 @@ document.addEventListener('keydown', function(e) {
           const start = (rows.length > 0 && isNaN(rows[0][0])) ? 1 : 0;
           let added = 0, skipped = 0;
           for (let r = start; r < rows.length; r++) {
-            const [midRaw, nameRaw, pauseRaw, forceRaw, memoRaw] = rows[r];
+            const [midRaw, pauseRaw, forceRaw, memoRaw] = rows[r];
             const mid      = String(midRaw||'').trim();
-            const name     = String(nameRaw||'').trim();
             const do_pause = String(pauseRaw||'').trim().toUpperCase() === 'O';
             const do_force = String(forceRaw||'').trim().toUpperCase() === 'O';
             const memo     = String(memoRaw||'').trim();
             if (!mid || (!do_pause && !do_force && !memo)) { skipped++; continue; }
             if (bsEntries.some(e => e.mid === mid)) { skipped++; continue; }
-            bsEntries.push({ mid, name, memo, do_pause, do_force, status:'ready', result:'' });
+            bsEntries.push({ mid, memo, do_pause, do_force, status:'ready', result:'' });
             added++;
           }
           bsSave(); bsRender();
@@ -796,6 +795,54 @@ document.addEventListener('keydown', function(e) {
     badge.className = 'bs-srv-badge bs-srv-err';
     bsLog('⚠️ 서버 연결 실패 — 잠시 후 다시 시도해주세요.', 'warn');
   })();
+
+  // 강제종료 성공 시 해당 MID 슬롯 상태 자동 변경 + 익일 종료
+  async function onBsEntrySuccess(mid) {
+    if (!window.HA) return;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    try {
+      const slots = await window.HA.getSlots();
+      const targets = slots.filter(s => s.mid === mid && s.status !== 'ended' && s.status !== 'force_stopped');
+      for (const s of targets) {
+        await window.HA.updateSlot(s._key, { status: 'force_stopped', endDate: tomorrowStr });
+      }
+      if (window.renderReceipts) window.renderReceipts(false, true);
+    } catch(e) { console.error('onBsEntrySuccess 오류:', e); }
+  }
+
+  // 메인 테이블 체크 항목을 강제종료 목록으로 일괄 삽입
+  window.bsLoadFromList = function() {
+    const allSlotsData = window.getAllSlots ? window.getAllSlots() : [];
+    const checkedKeys = new Set(
+      [...document.querySelectorAll('.row-check:checked')].map(el => el.dataset.key)
+    );
+    if (!checkedKeys.size) {
+      bsLog('⚠️ 리스트에서 체크된 항목이 없습니다.', 'warn');
+      return;
+    }
+    const existing = new Set(bsEntries.map(e => e.mid));
+    let added = 0, skipped = 0;
+    allSlotsData
+      .filter(s => checkedKeys.has(s._key))
+      .forEach(s => {
+        const mid = (s.mid || '').trim();
+        if (!mid) return;
+        if (existing.has(mid)) { skipped++; return; }
+        bsEntries.push({ mid, memo: '', do_pause: bsPause, do_force: bsForce, status: 'ready', result: '' });
+        existing.add(mid);
+        added++;
+      });
+    if (window.bsFbSave) window.bsFbSave(bsEntries);
+    bsRender();
+    bsLog(
+      added
+        ? `📋 불러오기: ${added}개 추가${skipped ? ', ' + skipped + '개 중복 건너뜀' : ''}`
+        : '⚠️ 추가된 항목 없음 (중복)',
+      added ? 'info' : 'warn'
+    );
+  };
 
   // Firebase 연동 (load/save)
   window._bsSetEntries = function(data) {
@@ -856,6 +903,8 @@ document.addEventListener('keydown', function(e) {
     <option value="pending">대기</option>
     <option value="accepted">접수</option>
     <option value="active">승인</option>
+    <option value="force_stopped">강제종료</option>
+    <option value="ended">종료</option>
   </select>
   <select id="filter-slot-type" onchange="renderReceipts()" disabled>
     <option value="">⏳ 등급 로딩 중...</option>
@@ -985,10 +1034,12 @@ window.closeUexModal = function() {
   let _detailOpen  = false;
 
   const stMap = {
-    pending:  '<span class="status-badge s-pending">대기</span>',
-    accepted: '<span class="status-badge s-accepted">접수</span>',
-    active:   '<span class="status-badge s-active">승인</span>',
-    expired:  '<span class="status-badge s-expired">만료</span>',
+    pending:       '<span class="status-badge s-pending">대기</span>',
+    accepted:      '<span class="status-badge s-accepted">접수</span>',
+    active:        '<span class="status-badge s-active">승인</span>',
+    force_stopped: '<span class="status-badge s-force-stopped">강제종료</span>',
+    ended:         '<span class="status-badge s-ended">종료</span>',
+    expired:       '<span class="status-badge s-ended">종료</span>',
   };
 
   // ── 등급 배지 ────────────────────────────────────────────────
@@ -1192,8 +1243,8 @@ window.closeUexModal = function() {
         s.status === 'active' && s.endDate && s.endDate < todayStr
       );
       if (toExpire.length) {
-        await Promise.all(toExpire.map(s => HA.updateSlot(s._key, { status: 'expired' })));
-        toExpire.forEach(s => { s.status = 'expired'; });
+        await Promise.all(toExpire.map(s => HA.updateSlot(s._key, { status: 'ended' })));
+        toExpire.forEach(s => { s.status = 'ended'; });
       }
     }
 
@@ -2332,6 +2383,7 @@ window.closeUexModal = function() {
             const startDate       = uexNormalizeDate(r[6]) || null;
             const dailyTargetRaw  = String(r[7] ?? '').trim();
             const dailyTarget     = dailyTargetRaw !== '' ? Number(dailyTargetRaw) : null;
+            const searchKeyword   = String(r[8] ?? '').trim();
 
             let endDate = null;
             if (startDate && days !== null && !isNaN(days) && days > 0) {
@@ -2354,7 +2406,7 @@ window.closeUexModal = function() {
             if (dailyTarget === null || isNaN(dailyTarget) || dailyTarget < 0) errors.push('일 목표 오류');
 
             return {
-              agencyId, storeName, url, mid, rankKeyword, days, startDate, endDate, dailyTarget,
+              agencyId, storeName, url, mid, rankKeyword, days, startDate, endDate, dailyTarget, searchKeyword,
               valid: errors.length === 0, error: errors.join(' / '),
             };
           });
@@ -2373,22 +2425,26 @@ window.closeUexModal = function() {
     document.getElementById('uex-preview-info').innerHTML =
       `총 <strong>${uexRows.length}건</strong> 중 <strong style="color:var(--accent)">${validCount}건</strong> 등록 가능 / <strong style="color:var(--danger)">${uexRows.length - validCount}건</strong> 오류`;
 
-    document.getElementById('uex-preview-body').innerHTML = uexRows.map((r, i) => `
+    document.getElementById('uex-preview-body').innerHTML = uexRows.map((r, i) => {
+      const prev = r.mid ? allSlots.find(s => s.mid === r.mid && s.rankKeyword) : null;
+      return `
       <tr>
         <td style="color:var(--muted)">${i+1}</td>
         <td style="font-weight:600">${r.agencyId || '-'}</td>
         <td style="font-weight:500">${r.storeName || '-'}</td>
         <td style="color:var(--text2);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.url || '-'}</td>
-        <td style="color:var(--text2)">${r.mid || '-'}</td>
+        <td style="color:var(--text2)">${r.mid || '-'}${prev ? '<br><span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">이력</span>' : ''}</td>
         <td>${r.rankKeyword || '-'}</td>
         <td style="color:var(--text2)">${r.days ?? '-'}</td>
         <td style="color:var(--text2)">${r.startDate || '-'}</td>
         <td style="color:var(--text2)">${r.endDate || '-'}</td>
         <td style="color:var(--text2)">${r.dailyTarget !== null && r.dailyTarget !== undefined ? r.dailyTarget.toLocaleString() : '-'}</td>
+        <td style="color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.searchKeyword || '-'}</td>
         <td>${r.valid
           ? '<span class="row-status row-ok">정상</span>'
           : `<span class="row-status row-err">${r.error}</span>`}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     document.getElementById('uex-zone').style.display = 'none';
     document.getElementById('uex-preview').style.display = 'block';
@@ -2406,10 +2462,10 @@ window.closeUexModal = function() {
       const wb = window.XLSX.utils.book_new();
       const todayStr = uexFmt(new Date());
       const ws = window.XLSX.utils.aoa_to_sheet([
-        ['대행사', '업체명', 'URL', 'MID', '순위키워드', '일 수', '시작일', '일 목표'],
-        ['예시대행사', '테스트 맛집', 'https://m.place.naver.com/restaurant/123456789', '123456789', '강남 맛집', 7, todayStr, 1000],
+        ['대행사', '업체명', 'URL', 'MID', '순위키워드', '일 수', '시작일', '일 목표', '검색키워드'],
+        ['예시대행사', '테스트 맛집', 'https://m.place.naver.com/restaurant/123456789', '123456789', '강남 맛집', 7, todayStr, 1000, ''],
       ]);
-      ws['!cols'] = [{wch:14},{wch:20},{wch:50},{wch:13},{wch:18},{wch:8},{wch:12},{wch:10}];
+      ws['!cols'] = [{wch:14},{wch:20},{wch:50},{wch:13},{wch:18},{wch:8},{wch:12},{wch:10},{wch:20}];
       window.XLSX.utils.book_append_sheet(wb, ws, '접수');
       window.XLSX.writeFile(wb, '유저엑셀접수_양식.xlsx');
     });
@@ -2428,15 +2484,16 @@ window.closeUexModal = function() {
     for (const row of validRows) {
       try {
         const result = await HA.addSlot({
-          agencyId:    row.agencyId,
-          storeName:   row.storeName,
-          rankKeyword: row.rankKeyword,
-          url:         row.url,
-          mid:         row.mid,
-          startDate:   row.startDate,
-          endDate:     row.endDate,
-          days:        row.days,
-          dailyTarget: row.dailyTarget,
+          agencyId:      row.agencyId,
+          storeName:     row.storeName,
+          rankKeyword:   row.rankKeyword,
+          url:           row.url,
+          mid:           row.mid,
+          startDate:     row.startDate,
+          endDate:       row.endDate,
+          days:          row.days,
+          dailyTarget:   row.dailyTarget,
+          searchKeyword: row.searchKeyword || '',
           memo: '',
         });
         allSlots.unshift(result);
@@ -2453,6 +2510,14 @@ window.closeUexModal = function() {
     btn.disabled = false;
     btn.textContent = '선택 접수 등록';
     closeUexModal();
+  };
+
+  // 강제종료 불러오기 버튼이 allSlots에 접근할 수 있도록 노출
+  window.getAllSlots = () => allSlots;
+
+  // 상품 유형 설정 [접수] 버튼 — BizFit 접수 (TODO 5)
+  window.submitDirect = function() {
+    alert('BizFit 접수 기능은 추후 구현 예정입니다.');
   };
 
   // 최초 로드

@@ -124,6 +124,7 @@ const HA = {
       memo:          data.memo          || '',
       days:          Number(data.days)        || 0,
       dailyTarget:   Number(data.dailyTarget) || 0,
+      searchKeyword: data.searchKeyword  || '',
       unitPrice:     unitPriceSnapshot,
     };
     const newRef = await push(ref(db, PATHS.slots), newSlot);
@@ -134,6 +135,11 @@ const HA = {
 
   async updateSlot(key, patch) {
     await update(ref(db, `${PATHS.slots}/${key}`), patch);
+    dispatch('ha:slots:updated');
+  },
+
+  async approveSlot(key) {
+    await update(ref(db, `${PATHS.slots}/${key}`), { status: 'active' });
     dispatch('ha:slots:updated');
   },
 
