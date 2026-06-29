@@ -148,6 +148,16 @@ const HA = {
     dispatch('ha:slots:updated');
   },
 
+  async getRankData(mid) {
+    const safeMid = mid.replace(/[.#$[\]/]/g, '_');
+    const snap = await get(ref(db, `ha/ranks/${safeMid}`));
+    return snap.exists() ? snap.val() : null;
+  },
+
+  async getDoc(path) { return get(ref(db, path)); },
+  async setDoc(path, val) { return set(ref(db, path), val); },
+  async removeDoc(path) { return remove(ref(db, path)); },
+
   // ════════════════════════════════════════════════════════
   // 회원 CRUD
   // ════════════════════════════════════════════════════════

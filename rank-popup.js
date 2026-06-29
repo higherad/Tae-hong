@@ -49,16 +49,27 @@ function injectRankPopupStyle() {
   document.head.appendChild(st);
 }
 
+const RANK_DB_URL = 'https://higherad-b9d62-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+async function getIdToken() {
+  try {
+    const { getApp } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js');
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js');
+    const auth = getAuth(getApp());
+    await auth.authStateReady();
+    return auth.currentUser ? await auth.currentUser.getIdToken() : null;
+  } catch { return null; }
+}
+
 async function renderRankTable(rankPath, area) {
   if (!area) return;
   try {
-    const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js');
-    const { getApp } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js');
-    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-auth.js');
-    const app  = getApp();
-    const auth = getAuth(app);
-    await auth.authStateReady();
-    const snap = await get(ref(getDatabase(app), rankPath));
+    const token = await getIdToken();
+    const url   = `${RANK_DB_URL}/${rankPath}.json${token ? `?auth=${token}` : ''}`;
+    const res   = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data  = await res.json();
+    const snap  = { exists: () => data !== null, val: () => data };
 
     if (!snap.exists()) {
       area.innerHTML = `<div class="rank-empty">저장된 순위 데이터가 없습니다.<br><small style="color:var(--muted)">매일 오후 자동으로 업데이트됩니다.</small></div>`;

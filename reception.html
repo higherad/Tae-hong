@@ -1850,7 +1850,7 @@ window.closeUexModal = function() {
 
   function getProdSettingsPath() {
     const cu = window.HA?.getCurrentUser?.();
-    return cu?.id ? `ha/prodSettings/${cu.id}` : null;
+    return cu?.id ? `tae-hong/prodSettings/${cu.id}` : null;
   }
   async function loadProdSettings() {
     const path = getProdSettingsPath();
@@ -1858,11 +1858,9 @@ window.closeUexModal = function() {
     const staticFlags = new Map(prods.map(p => [p.id, {daysMultiplied:p.daysMultiplied,fixedAlloc:p.fixedAlloc,kwLimit:p.kwLimit,autoBalance:p.autoBalance}]));
     const colorMap = new Map(prods.map(p => [p.id, p.color]));
     try {
-      const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js');
-      const db = getDatabase();
       const [prodsSnap, groupsSnap] = await Promise.all([
-        get(ref(db, path + '/prods')),
-        get(ref(db, path + '/groups'))
+        HA.getDoc(path + '/prods'),
+        HA.getDoc(path + '/groups')
       ]);
       if (prodsSnap.exists()) {
         const loaded = prodsSnap.val();
@@ -1884,12 +1882,9 @@ window.closeUexModal = function() {
     if (!path) return;
     const snapGroups = JSON.parse(JSON.stringify(prodGroups));
     const snapProds  = JSON.parse(JSON.stringify(prods));
-    import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js').then(({ getDatabase, ref, set, remove }) => {
-      const db = getDatabase();
-      set(ref(db, path + '/prods'), snapProds).catch(()=>{});
-      if (snapGroups.length > 0) set(ref(db, path + '/groups'), snapGroups).catch(()=>{});
-      else remove(ref(db, path + '/groups')).catch(()=>{});
-    }).catch(()=>{});
+    HA.setDoc(path + '/prods', snapProds).catch(()=>{});
+    if (snapGroups.length > 0) HA.setDoc(path + '/groups', snapGroups).catch(()=>{});
+    else HA.removeDoc(path + '/groups').catch(()=>{});
   }
   const prodSnapshot = () => prods.map(p => ({id:p.id,active:p.active,ratio:p.ratio,name:p.name,ver:p.ver,kwPct:p.kwPct}));
   function saveProdDefault() { defaultProdsState = prodSnapshot(); }
