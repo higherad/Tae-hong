@@ -871,9 +871,9 @@ document.addEventListener('keydown', function(e) {
               endDate:       originalEndDate,
               memo:          '강제종료 후 재접수',
             });
-            // addSlot은 pending으로 저장하므로 requeue로 덮어씀
+            // addSlot은 pending으로 저장하므로 requeue + isRequeue 플래그로 덮어씀
             if (newSlot && newSlot._key) {
-              await window.HA.updateSlot(newSlot._key, { status: 'requeue' });
+              await window.HA.updateSlot(newSlot._key, { status: 'requeue', isRequeue: true });
             }
           }
         }
@@ -1119,7 +1119,11 @@ window.closeUexModal = function() {
     if (s.status === 'force_stopped' && s.paused) {
       return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.paused}${stMap.force_stopped}</div>`;
     }
-    return stMap[s.status] || s.status;
+    const base = stMap[s.status] || s.status;
+    if (s.isRequeue && s.status !== 'requeue') {
+      return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.requeue}${base}</div>`;
+    }
+    return base;
   }
 
   // ── 등급 배지 ────────────────────────────────────────────────
@@ -1507,7 +1511,9 @@ window.closeUexModal = function() {
 
   // ── 상태 변경 ────────────────────────────────────────────
   window.changeStatusTo = async function(key, newStatus) {
-    const labelMap = { pending: '대기', accepted: '접수', active: '승인' };
+    const slot = allSlots.find(x => x._key === key);
+    if (newStatus === 'pending' && slot?.isRequeue) newStatus = 'requeue';
+    const labelMap = { pending: '대기', accepted: '접수', active: '승인', requeue: '재접수 대기' };
     if (!confirm(`상태를 "${labelMap[newStatus]}"(으)로 변경하시겠습니까?`)) return;
     await HA.updateSlot(key, { status: newStatus });
     const idx = allSlots.findIndex(x => x._key === key);
