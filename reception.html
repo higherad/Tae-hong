@@ -884,16 +884,14 @@ document.addEventListener('keydown', function(e) {
 </script>
 
 <script type="module">
+import HA from './store.js';
 (async function() {
-  const { getDatabase, ref, get, set } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js');
-  const db      = getDatabase();
-  const bsRef   = ref(db, 'tae-hong/bizfit_stop');
-  const snap    = await get(bsRef).catch(() => null);
+  const snap = await HA.getDoc('tae-hong/bizfit_stop').catch(() => null);
   if (snap && snap.exists()) {
     const data = snap.val();
     if (Array.isArray(data) && window._bsSetEntries) window._bsSetEntries(data);
   }
-  window.bsFbSave = (data) => set(bsRef, data).catch(e => console.error('bs save error:', e));
+  window.bsFbSave = (data) => HA.setDoc('tae-hong/bizfit_stop', data).catch(e => console.error('bs save error:', e));
 })();
 </script>
 

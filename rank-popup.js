@@ -68,15 +68,14 @@ async function renderRankTable(rankPath, area) {
     const url   = `${RANK_DB_URL}/${rankPath}.json${token ? `?auth=${token}` : ''}`;
     const res   = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data  = await res.json();
-    const snap  = { exists: () => data !== null, val: () => data };
+    const data = await res.json();
 
-    if (!snap.exists()) {
+    if (data === null) {
       area.innerHTML = `<div class="rank-empty">저장된 순위 데이터가 없습니다.<br><small style="color:var(--muted)">매일 오후 자동으로 업데이트됩니다.</small></div>`;
       return;
     }
 
-    const data = snap.val(); // { "2026-03-26": { keyword, rank }, ... }
+    // data: { "2026-03-26": { keyword, rank }, ... }
     const seen = new Set();
     const rows = Object.entries(data)
       .map(([date, v]) => ({ date, keyword: v.keyword || '-', rank: v.rank }))
