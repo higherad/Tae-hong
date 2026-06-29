@@ -1337,7 +1337,7 @@ window.closeUexModal = function() {
       // ── 종료일 지난 active 캠페인 자동 만료 처리 ──────────────
       const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
       const toExpire = allSlots.filter(s =>
-        (s.status === 'active' || s.status === 'force_stopped') && s.endDate && s.endDate < todayStr
+        (s.status === 'active' || s.status === 'force_stopped' || s.status === 'requeue' || s.status === 'paused') && s.endDate && s.endDate < todayStr
       );
       if (toExpire.length) {
         await Promise.all(toExpire.map(s => HA.updateSlot(s._key, { status: 'ended' })));
