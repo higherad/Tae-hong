@@ -3147,7 +3147,6 @@ document.getElementById('account-modal').addEventListener('click', e => {
 
 // ── 충전하기 모달 ──────────────────────────────────────────────
 let _selectedChargeKey = null;
-const escCm = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
 
 function renderChargeList() {
   const listEl  = document.getElementById('cm-acct-list');
@@ -3158,11 +3157,11 @@ function renderChargeList() {
     return;
   }
   listEl.innerHTML = entries.map(([key, a]) =>
-    `<div class="cm-acct-item${_selectedChargeKey === key ? ' cm-acct-selected' : ''}" data-key="${escCm(key)}" onclick="selectChargeAcct('${escCm(key)}')">
+    `<div class="cm-acct-item${_selectedChargeKey === key ? ' cm-acct-selected' : ''}" data-key="${esc(key)}" onclick="selectChargeAcct('${esc(key)}')">
       <div class="cm-acct-dot"></div>
       <div>
-        <div class="cm-acct-name">${escCm(a.agency) || '(대행사 미지정)'}</div>
-        <div class="cm-acct-id">${escCm(a.id)}</div>
+        <div class="cm-acct-name">${esc(a.agency) || '(대행사 미지정)'}</div>
+        <div class="cm-acct-id">${esc(a.id)}</div>
       </div>
     </div>`
   ).join('');
