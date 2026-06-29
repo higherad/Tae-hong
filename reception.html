@@ -240,6 +240,8 @@
 <div style="display:flex;gap:8px;margin-bottom:14px;">
   <button class="action-btn" onclick="openUexModal()" style="background:var(--info);color:#fff;padding:7px 16px;font-size:12px;">📊 대행사 엑셀 접수</button>
   <button class="action-btn" onclick="openStopModal()" style="background:#7b1fa2;color:#fff;padding:7px 16px;font-size:12px;">🛑 강제종료</button>
+  <button class="action-btn" onclick="openChargeModal()" style="background:#4f46e5;color:#fff;padding:7px 16px;font-size:12px;">⚡ 충전하기</button>
+  <button class="action-btn" onclick="openAccountModal()" style="background:#0f766e;color:#fff;padding:7px 16px;font-size:12px;">🔑 계정 설정</button>
 </div>
 
 <!-- 대행사 엑셀 접수 모달 -->
@@ -2653,13 +2655,10 @@ window.closeUexModal = function() {
   const BIZFIT_DOMAIN = 'http://higherad.co.kr';
   const BIZFIT_TAB    = '99';
 
-  async function fetchBizfitAccount(agencyId) {
-    const safe = s => s.replace(/[.#$[\]/]/g,'_');
-    try {
-      const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js');
-      const snap = await get(ref(getDatabase(), `ha/bizfit_charge/${safe(agencyId)}`));
-      return snap.exists() ? snap.val() : null;
-    } catch { return null; }
+  async function fetchBizfitAccount() {
+    const cu = window.HA?.getCurrentUser?.();
+    if (!cu) return null;
+    return window.HA.getChargeAccount(cu.username).catch(() => null);
   }
 
   async function callBizfitProxy(path, body) {
@@ -2861,10 +2860,10 @@ window.closeUexModal = function() {
         return;
       }
 
-      const account = p.realAg ? await fetchBizfitAccount(p.realAg) : null;
+      const account = await fetchBizfitAccount();
       if (!account) {
         validRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--danger);">❌ 계정 미등록</span>'; });
-        if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">비즈핏 계정 정보 미등록 (회원 관리에서 BizFit ID/PW 등록 필요)</span>';
+        if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">비즈핏 계정 미등록 — 🔑 계정 설정 버튼에서 먼저 등록해주세요.</span>';
         failTotal += validRows.length;
         return;
       }
@@ -2969,6 +2968,344 @@ window.closeUexModal = function() {
   }).catch(() => {});
 
 })();
+</script>
+
+<!-- ── 계정 설정 모달 ───────────────────────────────────────────── -->
+<div id="account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9300;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:360px;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-size:15px;font-weight:700;">🔑 계정 설정</div>
+      <button onclick="closeAccountModal()" style="border:none;background:#f1f5f9;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;">✕</button>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">아이디</label>
+      <input type="text" id="acct-id" placeholder="비즈핏 아이디"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+        onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">비밀번호</label>
+      <div style="position:relative;">
+        <input type="password" id="acct-pw" placeholder="비즈핏 비밀번호"
+          style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')saveAccountModal()">
+        <button id="acct-pw-toggle" onclick="acctTogglePw()"
+          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:14px;color:var(--text2);padding:0;line-height:1;">👁</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="closeAccountModal()" style="padding:9px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;">취소</button>
+      <button onclick="saveAccountModal()" style="padding:9px 18px;border:none;border-radius:8px;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 충전하기 모달 ───────────────────────────────────────────── -->
+<style>
+  #charge-modal { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px; }
+  #charge-modal .cm-box { background:#fff;border-radius:16px;width:680px;max-width:100%;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.25); }
+  #charge-modal .cm-head { display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1; }
+  #charge-modal .cm-head-title { font-size:15px;font-weight:700; }
+  #charge-modal .cm-close { border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1; }
+  #charge-modal .cm-body { padding:20px 24px; }
+  .cm-acct-box { background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px; }
+  .cm-acct-label { font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px; }
+  .cm-acct-row { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
+  .cm-acct-row input { padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;color:var(--text); }
+  .cm-acct-row input:focus { border-color:#4f46e5; }
+  .cm-acct-save { padding:7px 14px;background:#4f46e5;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap; }
+  .cm-acct-save:hover { background:#4338ca; }
+  .cm-agency-block { border:1.5px solid #c7d2fe;border-radius:12px;overflow:hidden;margin-bottom:12px; }
+  .cm-agency-block:last-child { margin-bottom:0; }
+  .cm-agency-hd { display:flex;justify-content:space-between;align-items:center;background:#eff4ff;padding:11px 16px;border-bottom:1.5px solid #c7d2fe; }
+  .cm-agency-name { font-size:14px;font-weight:800;color:var(--info); }
+  .cm-agency-meta { font-size:11px;color:#6366f1;margin-top:2px; }
+  .cm-agency-info { padding:10px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid #e0e7ff; }
+  .cm-agency-action { display:flex;align-items:center;gap:8px;padding:10px 16px;flex-wrap:wrap; }
+  .cm-amt-input { padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:monospace;outline:none;width:140px; }
+  .cm-amt-input:focus { border-color:#4f46e5; }
+  .cm-charge-btn { padding:7px 14px;background:#4f46e5;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap; }
+  .cm-charge-btn:hover:not(:disabled) { background:#4338ca; }
+  .cm-charge-btn:disabled { background:#94a3b8;cursor:not-allowed; }
+  .cm-copy-btn { background:#0d9488;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit; }
+  .cm-copy-btn:hover { background:#0f766e; }
+  .cm-copy-btn.ok { background:#0f766e; }
+  .cm-charged-badge { background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700; }
+  .cm-partial-badge { background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700; }
+  .cm-result { font-size:12px;font-weight:600; }
+</style>
+
+<div id="charge-modal">
+  <div class="cm-box">
+    <div class="cm-head">
+      <div class="cm-head-title">⚡ 충전하기</div>
+      <button class="cm-close" onclick="closeChargeModal()">✕</button>
+    </div>
+    <div class="cm-body">
+      <div class="cm-acct-box" style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--text2);">계정 : <strong id="cm-acct-display" style="color:var(--text);">-</strong></span>
+        <button onclick="openAccountModal()" style="padding:5px 12px;background:#0f766e;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🔑 계정 설정</button>
+      </div>
+      <div id="charge-agency-list">
+        <div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button onclick="closeChargeModal()" style="padding:8px 20px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import HA from './store.js';
+
+const CHARGE_SERVER = 'https://macro-1-bizfit-charge-938928195180.asia-northeast3.run.app';
+const safe = s => String(s).replace(/[.#$[\]/]/g, '_');
+
+let _chargeAcct = null; // { id, pw } — 계정 설정에서 저장/로드
+
+function getMinuteKey(iso) {
+  if (!iso) return 'unknown';
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function updateAcctDisplay() {
+  const el = document.getElementById('cm-acct-display');
+  if (el) el.textContent = _chargeAcct?.id || '미등록';
+}
+
+// ── 계정 설정 모달 ──────────────────────────────────────────────
+window.openAccountModal = async function() {
+  const cu = HA.getCurrentUser();
+  const acct = await HA.getChargeAccount(cu.username).catch(() => null);
+  document.getElementById('acct-id').value = acct?.id || '';
+  document.getElementById('acct-pw').value = acct?.pw || '';
+  document.getElementById('account-modal').style.display = 'flex';
+  document.getElementById('acct-id').focus();
+};
+
+window.closeAccountModal = function() {
+  document.getElementById('account-modal').style.display = 'none';
+};
+
+window.acctTogglePw = function() {
+  const inp = document.getElementById('acct-pw');
+  const btn = document.getElementById('acct-pw-toggle');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+};
+
+window.saveAccountModal = async function() {
+  const id = document.getElementById('acct-id').value.trim();
+  const pw = document.getElementById('acct-pw').value.trim();
+  if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
+  const cu = HA.getCurrentUser();
+  await HA.saveChargeAccount(cu.username, { id, pw });
+  _chargeAcct = { id, pw };
+  updateAcctDisplay();
+  closeAccountModal();
+};
+
+document.getElementById('account-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('account-modal')) closeAccountModal();
+});
+
+// ── 충전하기 모달 ──────────────────────────────────────────────
+window.openChargeModal = async function() {
+  document.getElementById('charge-modal').style.display = 'flex';
+  if (!_chargeAcct) {
+    const cu = HA.getCurrentUser();
+    _chargeAcct = await HA.getChargeAccount(cu.username).catch(() => null);
+  }
+  updateAcctDisplay();
+  buildChargeList();
+};
+
+window.closeChargeModal = function() {
+  document.getElementById('charge-modal').style.display = 'none';
+};
+
+document.getElementById('charge-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('charge-modal')) closeChargeModal();
+});
+
+window.cmTogglePw = function() {
+  const inp = document.getElementById('cm-pw');
+  const btn = document.getElementById('cm-pw-toggle');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+};
+
+window.cmSaveAcct = async function() {
+  const id = document.getElementById('cm-id').value.trim();
+  const pw = document.getElementById('cm-pw').value.trim();
+  if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
+  const cu = HA.getCurrentUser();
+  await HA.saveChargeAccount(cu.username, { id, pw });
+  const msg = document.getElementById('cm-save-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2000);
+};
+
+async function buildChargeList() {
+  const listEl = document.getElementById('charge-agency-list');
+  listEl.innerHTML = '<div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>';
+
+  const [slots, users, snapshots] = await Promise.all([
+    HA.getSlots(),
+    HA.getUsers(),
+    HA.getAllSettleSnapshots().catch(() => ({})),
+  ]);
+
+  const relevant = slots.filter(s =>
+    s.status === 'active' || s.status === 'accepted' ||
+    s.status === 'expired' || s.status === 'pending'
+  );
+
+  if (!relevant.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">표시할 데이터가 없습니다.</div>';
+    return;
+  }
+
+  function getSlotPrice(s) {
+    if (s.unitPrice != null && s.unitPrice !== '' && s.unitPrice > 0) return s.unitPrice;
+    const u = users.find(u => u.username === s.userId);
+    return u ? (u.unitPrice || 0) : 0;
+  }
+
+  // agencyId 기준으로 그룹 → 그 안에 time+userId 서브그룹 (스냅샷 키 생성용)
+  const agencyMap = {};
+  relevant.forEach(s => {
+    const agKey = s.agencyId || '-';
+    const agDisp = s.agencyId || '(대행사 미지정)';
+    if (!agencyMap[agKey]) agencyMap[agKey] = { display: agDisp, slots: [], subgroups: {} };
+    agencyMap[agKey].slots.push(s);
+    const t  = getMinuteKey(s.createdAt);
+    const gk = `${t}||${s.userId||'-'}`;
+    if (!agencyMap[agKey].subgroups[gk])
+      agencyMap[agKey].subgroups[gk] = { timeKey: t, userId: s.userId||'-', slots: [] };
+    agencyMap[agKey].subgroups[gk].slots.push(s);
+  });
+
+  listEl.innerHTML = '';
+
+  Object.entries(agencyMap).forEach(([agKey, data]) => {
+    const { display: agDisp, slots: agSlots, subgroups } = data;
+    const totalTgt = agSlots.reduce((a,s) => a + (s.dailyTarget||0)*(s.days||0), 0);
+    const totalAmt = agSlots.reduce((a,s) => a + (s.dailyTarget||0)*(s.days||0)*getSlotPrice(s), 0);
+    const groupList = Object.values(subgroups);
+
+    const chargedCount  = groupList.filter(g => !!snapshots[`${safe(g.timeKey)}__${safe(agKey)}__${safe(g.userId)}`]?.chargeConfirmedByName).length;
+    const allCharged    = chargedCount === groupList.length;
+    const someCharged   = chargedCount > 0 && !allCharged;
+
+    const block = document.createElement('div');
+    block.className = 'cm-agency-block';
+
+    const statusBadge = allCharged
+      ? '<span class="cm-charged-badge">✅ 충전완료</span>'
+      : someCharged ? '<span class="cm-partial-badge">⚠️ 일부충전</span>' : '';
+
+    block.innerHTML = `
+      <div class="cm-agency-hd">
+        <div>
+          <div class="cm-agency-name">${agDisp}</div>
+          <div class="cm-agency-meta">${agSlots.length}건 · 일목표 ${totalTgt.toLocaleString()}개</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${statusBadge}
+          <button class="cm-copy-btn">📋 복사</button>
+        </div>
+      </div>
+      <div class="cm-agency-info">
+        정산금액(VAT 별도) <strong>${Math.round(totalAmt).toLocaleString()}원</strong>
+        &nbsp;·&nbsp;
+        입금액(VAT 포함) <strong style="color:var(--info)">${Math.round(totalAmt*1.1).toLocaleString()}원</strong>
+      </div>
+      <div class="cm-agency-action">
+        <input type="text" inputmode="numeric" class="cm-amt-input" value="${Math.round(totalAmt)}" placeholder="충전 금액 (원)">
+        <button class="cm-charge-btn" ${allCharged ? 'disabled' : ''}>${allCharged ? '✅ 완료' : '⚡ 충전'}</button>
+        <span class="cm-result"></span>
+      </div>`;
+
+    // 복사 버튼
+    block.querySelector('.cm-copy-btn').onclick = function() {
+      const uPrice = getSlotPrice(agSlots[0]);
+      const txt = `• 캠페인 수: ${agSlots.length}건\n• 전체 목표: ${totalTgt.toLocaleString()}개\n\n• 단가: ${Math.round(uPrice).toLocaleString()}원\n• 금액: ${Math.round(totalAmt).toLocaleString()}원 (VAT 별도)\n\n• 입금액: ${Math.round(totalAmt*1.1).toLocaleString()}원 (VAT 포함)\n\n주식회사 하이어애드\n666-045450-04-013\nIBK기업은행\n\n확인 후 입금 부탁드립니다.`;
+      navigator.clipboard.writeText(txt).then(() => {
+        this.textContent = '✓ 복사됨'; this.classList.add('ok');
+        setTimeout(() => { this.textContent = '📋 복사'; this.classList.remove('ok'); }, 1500);
+      });
+    };
+
+    // 충전 버튼
+    block.querySelector('.cm-charge-btn').onclick = async function() {
+      if (!_chargeAcct?.id || !_chargeAcct?.pw) { alert('계정을 먼저 설정해주세요. (🔑 계정 설정)'); return; }
+      const { id, pw } = _chargeAcct;
+      const amtStr = block.querySelector('.cm-amt-input').value.replace(/[^0-9]/g,'');
+      const amount = parseInt(amtStr);
+      if (!amount || amount <= 0) { alert('충전 금액을 입력해주세요.'); return; }
+      if (!confirm(`[${agDisp}] ${amount.toLocaleString()}원 충전을 진행하시겠습니까?`)) return;
+
+      const resultEl = block.querySelector('.cm-result');
+      this.disabled = true; this.textContent = '⏳ 충전 중...';
+      resultEl.textContent = ''; resultEl.style.color = 'var(--text2)';
+
+      let ok = false, msg = '';
+      try {
+        const res = await fetch(`${CHARGE_SERVER}/charge-stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, pw, amount }),
+          signal: AbortSignal.timeout(120000),
+        });
+        if (!res.ok) throw new Error(`서버 응답 오류 (${res.status})`);
+        const reader = res.body.getReader(), decoder = new TextDecoder();
+        let buffer = '';
+        outer: while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n'); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            let data; try { data = JSON.parse(line.slice(6)); } catch { continue; }
+            if (data.ping) continue;
+            if (data.done !== undefined) { ok = data.done.success; msg = data.done.message || (ok ? '충전 완료' : '실패'); break outer; }
+          }
+        }
+      } catch(e) { ok = false; msg = `연결 실패: ${e.message}`; }
+
+      if (ok) {
+        this.textContent = '✅ 완료';
+        resultEl.textContent = msg; resultEl.style.color = 'var(--accent)';
+        // 모든 서브그룹에 충전 확인 기록
+        const cu = HA.getCurrentUser();
+        const staffName = cu ? (cu.name || cu.username) : '알 수 없음';
+        const staffId   = cu ? cu.username : '-';
+        const updates = { chargeConfirmedAt: new Date().toISOString(), chargeConfirmedBy: staffId, chargeConfirmedByName: staffName };
+        for (const g of groupList) {
+          const sk = `${safe(g.timeKey)}__${safe(agKey)}__${safe(g.userId)}`;
+          if (snapshots[sk]?.chargeConfirmedByName) continue;
+          const tot = g.slots.reduce((a,s) => a+(s.dailyTarget||0)*(s.days||0), 0);
+          const amt = g.slots.reduce((a,s) => a+(s.dailyTarget||0)*(s.days||0)*getSlotPrice(s), 0);
+          const snap = { ...(snapshots[sk]||{}), timeKey: g.timeKey, agencyId: agKey, userId: g.userId,
+            slotCount: g.slots.length, totalTarget: tot, amount: amt, refund: 0,
+            unitPrice: getSlotPrice(g.slots[0]), ...updates };
+          await HA.saveSettleSnapshot(sk, snap, true);
+          snapshots[sk] = snap;
+        }
+      } else {
+        this.disabled = false; this.textContent = '⚡ 재시도';
+        resultEl.textContent = msg; resultEl.style.color = 'var(--danger)';
+      }
+    };
+
+    listEl.appendChild(block);
+  });
+}
 </script>
 </div>
 </div>

@@ -167,6 +167,61 @@ const HA = {
     return snapToArray(snapshot);
   },
 
+  // ════════════════════════════════════════════════════════
+  // 정산
+  // ════════════════════════════════════════════════════════
+
+  async getPaidSet() {
+    const snap = await get(ref(db, 'tae-hong/paid'));
+    if (!snap.exists()) return new Set();
+    const val = snap.val();
+    return new Set(Object.keys(val).filter(k => val[k]));
+  },
+
+  async setPaid(key, paid) {
+    if (paid) await set(ref(db, `tae-hong/paid/${key}`), true);
+    else       await remove(ref(db, `tae-hong/paid/${key}`));
+  },
+
+  async getRefunds() {
+    const snap = await get(ref(db, 'tae-hong/refunds'));
+    return snap.exists() ? snap.val() : {};
+  },
+
+  async setRefundAmount(key, val) {
+    if (!val) await remove(ref(db, `tae-hong/refunds/${key}`));
+    else       await set(ref(db, `tae-hong/refunds/${key}`), val);
+  },
+
+  async saveSettleSnapshot(key, data, overwrite = false) {
+    const r = ref(db, `tae-hong/settle_snapshots/${key}`);
+    if (!overwrite) {
+      const snap = await get(r);
+      if (snap.exists()) return;
+    }
+    await set(r, data);
+  },
+
+  async getAllSettleSnapshots() {
+    const snap = await get(ref(db, 'tae-hong/settle_snapshots'));
+    return snap.exists() ? snap.val() : {};
+  },
+
+  async deleteSettleSnapshot(key) {
+    await remove(ref(db, `tae-hong/settle_snapshots/${key}`));
+  },
+
+  async getChargeAccount(username) {
+    const safeU = username.replace(/[.#$[\]/]/g, '_');
+    const snap  = await get(ref(db, `tae-hong/charge_accounts/${safeU}`));
+    return snap.exists() ? snap.val() : null;
+  },
+
+  async saveChargeAccount(username, data) {
+    const safeU = username.replace(/[.#$[\]/]/g, '_');
+    await set(ref(db, `tae-hong/charge_accounts/${safeU}`), data);
+  },
+
 };
 
 // 전역 노출
