@@ -828,7 +828,15 @@ document.addEventListener('keydown', function(e) {
     const tomorrowStr = tmrwDate.toISOString().slice(0, 10);
     try {
       const slots   = await window.HA.getSlots();
-      const targets = slots.filter(s => s.mid === mid && s.status !== 'ended' && s.status !== 'force_stopped');
+      const targets = slots.filter(s => {
+        if (s.mid !== mid) return false;
+        if (s.status === 'ended') return false;
+        // 동일 조건 변경 방지
+        if (didForce && didPause && s.status === 'force_stopped' && s.paused) return false;
+        if (didForce && !didPause && s.status === 'force_stopped' && !s.paused) return false;
+        if (!didForce && didPause && s.status === 'paused') return false;
+        return true;
+      });
       for (const s of targets) {
         const originalEndDate = s.endDate || '';
         let patch = {};
