@@ -975,7 +975,9 @@ document.addEventListener('keydown', function(e) {
     <option value="active">승인</option>
     <option value="force_stopped">강제종료</option>
     <option value="paused">임시중단</option>
-    <option value="requeue">재접수 대기</option>
+    <option value="requeue">재접수|대기</option>
+    <option value="requeue_accepted">재접수|접수</option>
+    <option value="requeue_active">재접수|승인</option>
     <option value="ended">종료</option>
   </select>
   <select id="filter-slot-type" onchange="renderReceipts()" disabled>
@@ -1111,7 +1113,7 @@ window.closeUexModal = function() {
     active:        '<span class="status-badge s-active">승인</span>',
     force_stopped: '<span class="status-badge s-force-stopped">강제종료</span>',
     paused:        '<span class="status-badge s-paused">임시중단</span>',
-    requeue:       '<span class="status-badge s-requeue">재접수/대기</span>',
+    requeue:       '<span class="status-badge s-pending">재접수|대기</span>',
     ended:         '<span class="status-badge s-ended">종료</span>',
     expired:       '<span class="status-badge s-ended">종료</span>',
   };
@@ -1120,9 +1122,11 @@ window.closeUexModal = function() {
       return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.paused}${stMap.force_stopped}</div>`;
     }
     if (s.isRequeue && s.status !== 'requeue') {
-      const labelMap = { accepted: '접수', active: '승인', pending: '대기' };
+      const classMap = { accepted: 's-accepted', active: 's-active', pending: 's-pending' };
+      const labelMap = { accepted: '접수',        active: '승인',     pending: '대기' };
+      const cls   = classMap[s.status] || 's-pending';
       const label = labelMap[s.status] || s.status;
-      return `<span class="status-badge s-requeue">재접수/${label}</span>`;
+      return `<span class="status-badge ${cls}">재접수|${label}</span>`;
     }
     return stMap[s.status] || s.status;
   }
@@ -1262,7 +1266,9 @@ window.closeUexModal = function() {
     const dateFrom    = document.getElementById('filter-date-from').value;
     return allSlots.filter(s => {
       if (s.status === 'deleted') return false;
-      if (status && s.status !== status) return false;
+      if (status === 'requeue_accepted') { if (!(s.isRequeue && s.status === 'accepted')) return false; }
+      else if (status === 'requeue_active') { if (!(s.isRequeue && s.status === 'active')) return false; }
+      else if (status && s.status !== status) return false;
       if (gradeFilter) {
         if (!['pending','accepted','active'].includes(s.status)) return false;
         const cached = GRADE_CACHE.get(s.mid);
