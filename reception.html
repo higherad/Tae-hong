@@ -339,7 +339,7 @@
   <div style="background:#fff;border-radius:16px;width:1100px;max-width:100%;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1;">
       <div style="font-size:15px;font-weight:700;">🛑 강제종료</div>
-      <button onclick="closeStopModal()" style="border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
+      <button id="bs-close-btn" onclick="closeStopModal()" style="border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
     </div>
   <div style="padding:20px 24px;">
     <style>
@@ -530,10 +530,11 @@ window.openStopModal = function() {
   m.style.display = 'flex';
 };
 window.closeStopModal = function() {
+  if (window.bsRunning) { alert('매크로 실행 중에는 팝업을 닫을 수 없습니다.'); return; }
   document.getElementById('stop-modal').style.display = 'none';
 };
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeStopModal(); closeUexModal(); }
+  if (e.key === 'Escape') { if (!window.bsRunning) { closeStopModal(); closeUexModal(); } }
 });
 
 (function() {
@@ -670,6 +671,9 @@ document.addEventListener('keydown', function(e) {
     }).join('\n');
     if (!confirm(`아래 항목을 처리하시겠습니까?\n\n${summary}\n\n총 ${selected.length}건${skipped?` (완료된 ${skipped}건은 건너뜀)`:''}`)) return;
 
+    window.bsRunning = true;
+    const bsCloseBtn = document.getElementById('bs-close-btn');
+    if (bsCloseBtn) { bsCloseBtn.disabled = true; bsCloseBtn.style.opacity = '0.3'; bsCloseBtn.style.cursor = 'not-allowed'; }
     document.getElementById('bs-btn-run').disabled = true;
     document.getElementById('bs-prog-wrap').style.display = 'block';
     const payload = selected.map(e => ({ mid: e.mid, memo: e.memo||'', do_pause: e.do_pause, do_force: e.do_force }));
@@ -739,6 +743,8 @@ document.addEventListener('keydown', function(e) {
       bsLog(`❌ 서버 오류: ${e.message}`, 'fail');
       document.getElementById('bs-prog-txt').textContent = '오류 발생';
     }
+    window.bsRunning = false;
+    if (bsCloseBtn) { bsCloseBtn.disabled = false; bsCloseBtn.style.opacity = ''; bsCloseBtn.style.cursor = ''; }
     bsSave(); bsRender();
     document.getElementById('bs-btn-run').disabled = false;
   };
