@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -2983,7 +2983,7 @@ window.closeUexModal = function() {
 
     <!-- 입력 폼 -->
     <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-      <div id="acct-form-label" style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">새 계정 추가</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">새 계정 추가</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:flex-end;">
         <div>
           <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:4px;">대행사</label>
@@ -2999,21 +2999,13 @@ window.closeUexModal = function() {
         </div>
         <div>
           <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:4px;">비밀번호</label>
-          <div style="position:relative;">
-            <input type="password" id="acct-pw" placeholder="비밀번호"
-              style="width:100%;padding:8px 30px 8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
-              onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'"
-              onkeydown="if(event.key==='Enter')saveAccountModal()">
-            <button id="acct-pw-toggle" onclick="acctTogglePw()"
-              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2);padding:0;line-height:1;">👁</button>
-          </div>
+          <input type="text" id="acct-pw" placeholder="비밀번호"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='var(--border)'"
+            onkeydown="if(event.key==='Enter')saveAccountModal()">
         </div>
-        <div style="display:flex;gap:5px;">
-          <button id="acct-submit-btn" onclick="saveAccountModal()"
-            style="padding:8px 14px;border:none;border-radius:7px;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;">추가</button>
-          <button id="acct-cancel-btn" onclick="resetAcctForm()"
-            style="display:none;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;font-size:12px;font-family:inherit;">취소</button>
-        </div>
+        <button onclick="saveAccountModal()"
+          style="padding:8px 14px;border:none;border-radius:7px;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;align-self:flex-end;">추가</button>
       </div>
     </div>
 
@@ -3068,13 +3060,25 @@ window.closeUexModal = function() {
       <button class="cm-close" onclick="closeChargeModal()">✕</button>
     </div>
     <div class="cm-body">
-      <div class="cm-acct-box" style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:12px;color:var(--text2);">등록 계정 : <strong id="cm-acct-display" style="color:var(--text);">-</strong></span>
-        <button onclick="openAccountModal()" style="padding:5px 12px;background:#0f766e;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🔑 계정 설정</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end;margin-bottom:14px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">대행사명</label>
+          <input type="text" id="cm-agency" placeholder="대행사명"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='var(--border)'"
+            onkeydown="if(event.key==='Enter')document.getElementById('cm-amount').focus()">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">충전 금액 (원)</label>
+          <input type="text" id="cm-amount" inputmode="numeric" placeholder="0"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='var(--border)'"
+            onkeydown="if(event.key==='Enter')doCharge()">
+        </div>
+        <button id="cm-charge-btn" onclick="doCharge()"
+          style="padding:9px 18px;border:none;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;align-self:flex-end;">⚡ 충전</button>
       </div>
-      <div id="charge-agency-list">
-        <div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>
-      </div>
+      <div id="cm-charge-result" style="font-size:13px;font-weight:600;min-height:20px;"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:16px;">
         <button onclick="closeChargeModal()" style="padding:8px 20px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;">닫기</button>
       </div>
@@ -3089,44 +3093,20 @@ const CHARGE_SERVER = 'https://macro-1-bizfit-charge-938928195180.asia-northeast
 const safe = s => String(s).replace(/[.#$[\]/]/g, '_');
 
 let _chargeAccts = {}; // { [key]: { agency, id, pw } }
-let _editingKey  = null;
-
-function getMinuteKey(iso) {
-  if (!iso) return 'unknown';
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-function updateChargeAcctCount() {
-  const el = document.getElementById('cm-acct-display');
-  if (!el) return;
-  const count = Object.keys(_chargeAccts).length;
-  el.textContent = count ? `${count}개 등록됨` : '미등록';
-}
 
 // ── 계정 설정 모달 ──────────────────────────────────────────────
 window.openAccountModal = async function() {
   const cu = HA.getCurrentUser();
   _chargeAccts = await HA.getChargeAccounts(cu.username).catch(() => ({}));
   renderAcctList();
-  resetAcctForm();
+  document.getElementById('acct-agency').value = '';
+  document.getElementById('acct-id').value = '';
+  document.getElementById('acct-pw').value = '';
   document.getElementById('account-modal').style.display = 'flex';
 };
 
 window.closeAccountModal = function() {
   document.getElementById('account-modal').style.display = 'none';
-};
-
-window.resetAcctForm = function() {
-  _editingKey = null;
-  document.getElementById('acct-agency').value = '';
-  document.getElementById('acct-id').value = '';
-  document.getElementById('acct-pw').value = '';
-  document.getElementById('acct-pw').type = 'password';
-  document.getElementById('acct-pw-toggle').textContent = '👁';
-  document.getElementById('acct-form-label').textContent = '새 계정 추가';
-  document.getElementById('acct-submit-btn').textContent = '추가';
-  document.getElementById('acct-cancel-btn').style.display = 'none';
 };
 
 function renderAcctList() {
@@ -3136,6 +3116,7 @@ function renderAcctList() {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:8px;">저장된 계정이 없습니다.</div>';
     return;
   }
+  const esc = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
   listEl.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
@@ -3148,13 +3129,13 @@ function renderAcctList() {
       </thead>
       <tbody>
         ${entries.map(([key, a]) => `
-          <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:9px 10px;font-weight:600;">${a.agency || '-'}</td>
-            <td style="padding:9px 10px;">${a.id}</td>
-            <td style="padding:9px 10px;color:var(--text2);letter-spacing:2px;">●●●●●●</td>
+          <tr data-key="${esc(key)}" style="border-bottom:1px solid var(--border);">
+            <td style="padding:9px 10px;font-weight:600;">${esc(a.agency) || '-'}</td>
+            <td style="padding:9px 10px;">${esc(a.id)}</td>
+            <td style="padding:9px 10px;">${esc(a.pw)}</td>
             <td style="padding:9px 10px;white-space:nowrap;text-align:right;">
-              <button onclick="editAcct('${key}')" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;font-family:inherit;margin-right:4px;">수정</button>
-              <button onclick="deleteAcct('${key}')" style="padding:5px 10px;border:none;border-radius:6px;background:#fef2f2;color:var(--danger);cursor:pointer;font-size:12px;font-family:inherit;">삭제</button>
+              <button onclick="editAcct('${esc(key)}')" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;font-family:inherit;margin-right:4px;">수정</button>
+              <button onclick="deleteAcct('${esc(key)}')" style="padding:5px 10px;border:none;border-radius:6px;background:#fef2f2;color:var(--danger);cursor:pointer;font-size:12px;font-family:inherit;">삭제</button>
             </td>
           </tr>
         `).join('')}
@@ -3165,14 +3146,30 @@ function renderAcctList() {
 window.editAcct = function(key) {
   const a = _chargeAccts[key];
   if (!a) return;
-  _editingKey = key;
-  document.getElementById('acct-agency').value = a.agency || '';
-  document.getElementById('acct-id').value     = a.id || '';
-  document.getElementById('acct-pw').value     = a.pw || '';
-  document.getElementById('acct-form-label').textContent        = `[${a.agency || a.id}] 수정 중`;
-  document.getElementById('acct-submit-btn').textContent        = '저장';
-  document.getElementById('acct-cancel-btn').style.display      = '';
-  document.getElementById('acct-id').focus();
+  const row = document.querySelector(`tr[data-key="${key}"]`);
+  if (!row) return;
+  const inp = (val, id) => `<input type="text" value="${(val||'').replace(/"/g,'&quot;')}" id="${id}"
+    style="width:100%;padding:6px 8px;border:1.5px solid #0f766e;border-radius:6px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">`;
+  row.innerHTML = `
+    <td style="padding:5px 6px;">${inp(a.agency, `ei-ag-${key}`)}</td>
+    <td style="padding:5px 6px;">${inp(a.id,     `ei-id-${key}`)}</td>
+    <td style="padding:5px 6px;">${inp(a.pw,     `ei-pw-${key}`)}</td>
+    <td style="padding:5px 6px;white-space:nowrap;text-align:right;">
+      <button onclick="saveEditAcct('${key}')" style="padding:5px 10px;border:none;border-radius:6px;background:#0f766e;color:#fff;cursor:pointer;font-size:12px;font-family:inherit;margin-right:4px;">저장</button>
+      <button onclick="renderAcctList()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;font-family:inherit;">취소</button>
+    </td>`;
+  document.getElementById(`ei-id-${key}`)?.focus();
+};
+
+window.saveEditAcct = async function(key) {
+  const agency = document.getElementById(`ei-ag-${key}`)?.value.trim() || '';
+  const id     = document.getElementById(`ei-id-${key}`)?.value.trim() || '';
+  const pw     = document.getElementById(`ei-pw-${key}`)?.value.trim() || '';
+  if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
+  const cu = HA.getCurrentUser();
+  await HA.saveChargeAccount(cu.username, key, { agency, id, pw });
+  _chargeAccts[key] = { agency, id, pw };
+  renderAcctList();
 };
 
 window.deleteAcct = async function(key) {
@@ -3182,7 +3179,6 @@ window.deleteAcct = async function(key) {
   await HA.deleteChargeAccount(cu.username, key);
   delete _chargeAccts[key];
   renderAcctList();
-  updateChargeAcctCount();
 };
 
 window.saveAccountModal = async function() {
@@ -3191,20 +3187,13 @@ window.saveAccountModal = async function() {
   const pw     = document.getElementById('acct-pw').value.trim();
   if (!id || !pw) { alert('아이디와 비밀번호를 모두 입력해주세요.'); return; }
   const cu  = HA.getCurrentUser();
-  const key = _editingKey || (agency ? safe(agency) : `acct_${Date.now()}`);
-  const data = { agency, id, pw };
-  await HA.saveChargeAccount(cu.username, key, data);
-  _chargeAccts[key] = data;
+  const key = agency ? safe(agency) : `acct_${Date.now()}`;
+  await HA.saveChargeAccount(cu.username, key, { agency, id, pw });
+  _chargeAccts[key] = { agency, id, pw };
   renderAcctList();
-  resetAcctForm();
-  updateChargeAcctCount();
-};
-
-window.acctTogglePw = function() {
-  const inp = document.getElementById('acct-pw');
-  const btn = document.getElementById('acct-pw-toggle');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+  document.getElementById('acct-agency').value = '';
+  document.getElementById('acct-id').value = '';
+  document.getElementById('acct-pw').value = '';
 };
 
 document.getElementById('account-modal').addEventListener('click', e => {
@@ -3216,8 +3205,12 @@ window.openChargeModal = async function() {
   document.getElementById('charge-modal').style.display = 'flex';
   const cu = HA.getCurrentUser();
   _chargeAccts = await HA.getChargeAccounts(cu.username).catch(() => ({}));
-  updateChargeAcctCount();
-  buildChargeList();
+  document.getElementById('cm-agency').value = '';
+  document.getElementById('cm-amount').value = '';
+  document.getElementById('cm-charge-result').textContent = '';
+  const btn = document.getElementById('cm-charge-btn');
+  btn.disabled = false; btn.textContent = '⚡ 충전';
+  document.getElementById('cm-agency').focus();
 };
 
 window.closeChargeModal = function() {
@@ -3228,176 +3221,62 @@ document.getElementById('charge-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('charge-modal')) closeChargeModal();
 });
 
-async function buildChargeList() {
-  const listEl = document.getElementById('charge-agency-list');
-  listEl.innerHTML = '<div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>';
+window.doCharge = async function() {
+  const agency  = document.getElementById('cm-agency').value.trim();
+  const amtStr  = document.getElementById('cm-amount').value.replace(/[^0-9]/g, '');
+  const amount  = parseInt(amtStr);
+  const resultEl = document.getElementById('cm-charge-result');
+  const btn      = document.getElementById('cm-charge-btn');
 
-  const [slots, users, snapshots] = await Promise.all([
-    HA.getSlots(),
-    HA.getUsers(),
-    HA.getAllSettleSnapshots().catch(() => ({})),
-  ]);
+  if (!agency) { alert('대행사명을 입력해주세요.'); return; }
+  if (!amount || amount <= 0) { alert('충전 금액을 입력해주세요.'); return; }
 
-  const relevant = slots.filter(s =>
-    s.status === 'active' || s.status === 'accepted' ||
-    s.status === 'expired' || s.status === 'pending'
-  );
-
-  if (!relevant.length) {
-    listEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">표시할 데이터가 없습니다.</div>';
+  const accts = Object.values(_chargeAccts);
+  const acct  = accts.find(a => a.agency === agency);
+  if (!acct) {
+    alert('[' + agency + '] 등록된 계정이 없습니다.\n🔑 계정 설정에서 대행사명을 일치시켜 등록해주세요.');
     return;
   }
+  if (!confirm('[' + agency + '] ' + amount.toLocaleString() + '원 충전을 진행하시겠습니까?')) return;
 
-  function getSlotPrice(s) {
-    if (s.unitPrice != null && s.unitPrice !== '' && s.unitPrice > 0) return s.unitPrice;
-    const u = users.find(u => u.username === s.userId);
-    return u ? (u.unitPrice || 0) : 0;
+  const { id, pw } = acct;
+  btn.disabled = true; btn.textContent = '⏳ 충전 중...';
+  resultEl.textContent = ''; resultEl.style.color = 'var(--text2)';
+
+  let ok = false, msg = '';
+  try {
+    const res = await fetch(CHARGE_SERVER + '/charge-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, pw, amount }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!res.ok) throw new Error('서버 응답 오류 (' + res.status + ')');
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buffer = '';
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n'); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let data; try { data = JSON.parse(line.slice(6)); } catch { continue; }
+        if (data.ping) continue;
+        if (data.done !== undefined) { ok = data.done.success; msg = data.done.message || (ok ? '충전 완료' : '실패'); break outer; }
+      }
+    }
+  } catch(e) { ok = false; msg = '연결 실패: ' + e.message; }
+
+  if (ok) {
+    btn.textContent = '✅ 완료';
+    resultEl.textContent = msg; resultEl.style.color = 'var(--accent)';
+    setTimeout(function() { btn.disabled = false; btn.textContent = '⚡ 충전'; }, 3000);
+  } else {
+    btn.disabled = false; btn.textContent = '⚡ 충전';
+    resultEl.textContent = msg; resultEl.style.color = 'var(--danger)';
   }
-
-  // agencyId 기준으로 그룹 → 그 안에 time+userId 서브그룹 (스냅샷 키 생성용)
-  const agencyMap = {};
-  relevant.forEach(s => {
-    const agKey = s.agencyId || '-';
-    const agDisp = s.agencyId || '(대행사 미지정)';
-    if (!agencyMap[agKey]) agencyMap[agKey] = { display: agDisp, slots: [], subgroups: {} };
-    agencyMap[agKey].slots.push(s);
-    const t  = getMinuteKey(s.createdAt);
-    const gk = `${t}||${s.userId||'-'}`;
-    if (!agencyMap[agKey].subgroups[gk])
-      agencyMap[agKey].subgroups[gk] = { timeKey: t, userId: s.userId||'-', slots: [] };
-    agencyMap[agKey].subgroups[gk].slots.push(s);
-  });
-
-  listEl.innerHTML = '';
-
-  Object.entries(agencyMap).forEach(([agKey, data]) => {
-    const { display: agDisp, slots: agSlots, subgroups } = data;
-    const totalTgt = agSlots.reduce((a,s) => a + (s.dailyTarget||0)*(s.days||0), 0);
-    const totalAmt = agSlots.reduce((a,s) => a + (s.dailyTarget||0)*(s.days||0)*getSlotPrice(s), 0);
-    const groupList = Object.values(subgroups);
-
-    const chargedCount  = groupList.filter(g => !!snapshots[`${safe(g.timeKey)}__${safe(agKey)}__${safe(g.userId)}`]?.chargeConfirmedByName).length;
-    const allCharged    = chargedCount === groupList.length;
-    const someCharged   = chargedCount > 0 && !allCharged;
-
-    // 매칭 계정 찾기: 대행사명 일치 우선 → 1개뿐이면 자동 선택
-    const acctList  = Object.values(_chargeAccts);
-    const matchAcct = acctList.find(a => a.agency === agKey) || (acctList.length === 1 ? acctList[0] : null);
-    const acctTag   = matchAcct
-      ? `<span style="font-size:11px;color:var(--text2);flex-shrink:0;">계정: <strong style="color:var(--text);">${matchAcct.id}</strong></span>`
-      : `<span style="font-size:11px;color:var(--danger);flex-shrink:0;">계정 미등록</span>`;
-
-    const block = document.createElement('div');
-    block.className = 'cm-agency-block';
-
-    const statusBadge = allCharged
-      ? '<span class="cm-charged-badge">✅ 충전완료</span>'
-      : someCharged ? '<span class="cm-partial-badge">⚠️ 일부충전</span>' : '';
-
-    block.innerHTML = `
-      <div class="cm-agency-hd">
-        <div>
-          <div class="cm-agency-name">${agDisp}</div>
-          <div class="cm-agency-meta">${agSlots.length}건 · 일목표 ${totalTgt.toLocaleString()}개</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${statusBadge}
-          <button class="cm-copy-btn">📋 복사</button>
-        </div>
-      </div>
-      <div class="cm-agency-info">
-        정산금액(VAT 별도) <strong>${Math.round(totalAmt).toLocaleString()}원</strong>
-        &nbsp;·&nbsp;
-        입금액(VAT 포함) <strong style="color:var(--info)">${Math.round(totalAmt*1.1).toLocaleString()}원</strong>
-      </div>
-      <div class="cm-agency-action">
-        ${acctTag}
-        <input type="text" inputmode="numeric" class="cm-amt-input" value="${Math.round(totalAmt)}" placeholder="충전 금액 (원)" style="flex:1;min-width:0;">
-        <button class="cm-charge-btn" ${allCharged ? 'disabled' : ''}>${allCharged ? '✅ 완료' : '⚡ 충전'}</button>
-        <span class="cm-result"></span>
-      </div>`;
-
-    // 복사 버튼
-    block.querySelector('.cm-copy-btn').onclick = function() {
-      const uPrice = getSlotPrice(agSlots[0]);
-      const txt = `• 캠페인 수: ${agSlots.length}건\n• 전체 목표: ${totalTgt.toLocaleString()}개\n\n• 단가: ${Math.round(uPrice).toLocaleString()}원\n• 금액: ${Math.round(totalAmt).toLocaleString()}원 (VAT 별도)\n\n• 입금액: ${Math.round(totalAmt*1.1).toLocaleString()}원 (VAT 포함)\n\n주식회사 하이어애드\n666-045450-04-013\nIBK기업은행\n\n확인 후 입금 부탁드립니다.`;
-      navigator.clipboard.writeText(txt).then(() => {
-        this.textContent = '✓ 복사됨'; this.classList.add('ok');
-        setTimeout(() => { this.textContent = '📋 복사'; this.classList.remove('ok'); }, 1500);
-      });
-    };
-
-    // 충전 버튼
-    block.querySelector('.cm-charge-btn').onclick = async function() {
-      const accts = Object.values(_chargeAccts);
-      const acct  = accts.find(a => a.agency === agKey) || (accts.length === 1 ? accts[0] : null);
-      if (!acct?.id || !acct?.pw) {
-        alert(`[${agDisp}]에 매칭된 계정이 없습니다.\n🔑 계정 설정에서 대행사명을 일치시켜 등록해주세요.`);
-        return;
-      }
-      const { id, pw } = acct;
-      const amtStr = block.querySelector('.cm-amt-input').value.replace(/[^0-9]/g,'');
-      const amount = parseInt(amtStr);
-      if (!amount || amount <= 0) { alert('충전 금액을 입력해주세요.'); return; }
-      if (!confirm(`[${agDisp}] ${amount.toLocaleString()}원 충전을 진행하시겠습니까?`)) return;
-
-      const resultEl = block.querySelector('.cm-result');
-      this.disabled = true; this.textContent = '⏳ 충전 중...';
-      resultEl.textContent = ''; resultEl.style.color = 'var(--text2)';
-
-      let ok = false, msg = '';
-      try {
-        const res = await fetch(`${CHARGE_SERVER}/charge-stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, pw, amount }),
-          signal: AbortSignal.timeout(120000),
-        });
-        if (!res.ok) throw new Error(`서버 응답 오류 (${res.status})`);
-        const reader = res.body.getReader(), decoder = new TextDecoder();
-        let buffer = '';
-        outer: while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n'); buffer = lines.pop();
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            let data; try { data = JSON.parse(line.slice(6)); } catch { continue; }
-            if (data.ping) continue;
-            if (data.done !== undefined) { ok = data.done.success; msg = data.done.message || (ok ? '충전 완료' : '실패'); break outer; }
-          }
-        }
-      } catch(e) { ok = false; msg = `연결 실패: ${e.message}`; }
-
-      if (ok) {
-        this.textContent = '✅ 완료';
-        resultEl.textContent = msg; resultEl.style.color = 'var(--accent)';
-        // 모든 서브그룹에 충전 확인 기록
-        const cu = HA.getCurrentUser();
-        const staffName = cu ? (cu.name || cu.username) : '알 수 없음';
-        const staffId   = cu ? cu.username : '-';
-        const updates = { chargeConfirmedAt: new Date().toISOString(), chargeConfirmedBy: staffId, chargeConfirmedByName: staffName };
-        for (const g of groupList) {
-          const sk = `${safe(g.timeKey)}__${safe(agKey)}__${safe(g.userId)}`;
-          if (snapshots[sk]?.chargeConfirmedByName) continue;
-          const tot = g.slots.reduce((a,s) => a+(s.dailyTarget||0)*(s.days||0), 0);
-          const amt = g.slots.reduce((a,s) => a+(s.dailyTarget||0)*(s.days||0)*getSlotPrice(s), 0);
-          const snap = { ...(snapshots[sk]||{}), timeKey: g.timeKey, agencyId: agKey, userId: g.userId,
-            slotCount: g.slots.length, totalTarget: tot, amount: amt, refund: 0,
-            unitPrice: getSlotPrice(g.slots[0]), ...updates };
-          await HA.saveSettleSnapshot(sk, snap, true);
-          snapshots[sk] = snap;
-        }
-      } else {
-        this.disabled = false; this.textContent = '⚡ 재시도';
-        resultEl.textContent = msg; resultEl.style.color = 'var(--danger)';
-      }
-    };
-
-    listEl.appendChild(block);
-  });
-}
+};
 </script>
 </div>
 </div>
