@@ -1602,12 +1602,13 @@ window.closeUexModal = function() {
         </div>
         <div class="modal-row">
           <div class="modal-field"><label>대행사</label><input id="d-agencyId" value="${escV(s.agencyId)}"></div>
-          <div class="modal-field"><label>담당자</label><input id="d-userId" value="${escV(s.userId)}"></div>
+          <div class="modal-field"><label>순위키워드</label><input id="d-rankKeyword" value="${escV(s.rankKeyword)}"></div>
         </div>
         <div class="modal-field"><label>플레이스명</label><input id="d-storeName" value="${escV(s.storeName)}"></div>
-        <div class="modal-field"><label>순위키워드</label><input id="d-rankKeyword" value="${escV(s.rankKeyword)}"></div>
-        <div class="modal-field"><label>URL</label><input id="d-url" value="${escV(s.url)}"></div>
-        <div class="modal-field"><label>MID</label><input id="d-mid" value="${escV(s.mid)}"></div>
+        <div class="modal-row">
+          <div class="modal-field"><label>URL</label><input id="d-url" value="${escV(s.url)}"></div>
+          <div class="modal-field"><label>MID</label><input id="d-mid" value="${escV(s.mid)}"></div>
+        </div>
         <div class="modal-row">
           <div class="modal-field"><label>일 목표</label><input type="number" id="d-dailyTarget" value="${escV(s.dailyTarget)}"></div>
           <div class="modal-field"><label>일 수</label><input type="number" id="d-days" value="${escV(s.days)}"></div>
