@@ -19,10 +19,10 @@
     .header-logo span { color:var(--accent); }
     .header-back { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); cursor:pointer; padding:6px 14px; border-radius:7px; border:1px solid rgba(255,255,255,.1); transition:.2s; justify-self:end; }
     .header-back:hover { color:#fff; border-color:rgba(255,255,255,.3); }
-    .header-nav { display:flex; align-items:center; gap:2px; justify-self:center; }
-    .header-nav-btn { display:flex; align-items:center; gap:5px; padding:7px 14px; border:none; border-radius:7px; background:transparent; color:#fff; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:.15s; white-space:nowrap; }
+    .header-nav { display:flex; align-items:center; justify-self:center; }
+    .header-nav-btn { display:flex; align-items:center; gap:5px; padding:7px 14px; border:none; border-radius:0; background:transparent; color:#fff; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:.15s; white-space:nowrap; }
     .header-nav-btn:hover { background:rgba(255,255,255,.15); }
-    .header-nav-sep { width:1px; height:18px; background:rgba(255,255,255,.2); margin:0 2px; }
+    .header-nav-btn + .header-nav-btn { border-left:1px solid rgba(255,255,255,.2); }
     .page-wrap { max-width:1400px; margin:0 auto; padding:28px 24px 80px; }
     @media (max-width: 768px) {
       header { padding: 0 16px; height: 56px; }
@@ -37,11 +37,8 @@
   <div class="header-logo">HIGHER <span>AD</span></div>
   <nav class="header-nav">
     <button class="header-nav-btn" onclick="openUexModal()">📊 엑셀 접수</button>
-    <div class="header-nav-sep"></div>
     <button class="header-nav-btn" onclick="openStopModal()">🛑 강제종료</button>
-    <div class="header-nav-sep"></div>
     <button class="header-nav-btn" onclick="openChargeModal()">⚡ 충전하기</button>
-    <div class="header-nav-sep"></div>
     <button class="header-nav-btn" onclick="openAccountModal()">🔑 계정 설정</button>
   </nav>
 </header>
@@ -2970,6 +2967,14 @@ window.closeUexModal = function() {
   #charge-modal .cm-head-title { font-size:15px;font-weight:700; }
   #charge-modal .cm-close { border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1; }
   #charge-modal .cm-body { padding:20px 24px; }
+  .cm-acct-item { display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;transition:background .1s; }
+  .cm-acct-item:not(:last-child) { border-bottom:1px solid var(--border); }
+  .cm-acct-item:not(.selected):hover { background:#f8fafc; }
+  .cm-acct-item.selected { background:#eff4ff; }
+  .cm-acct-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#e2e8f0; }
+  .cm-acct-item.selected .cm-acct-dot { background:#4f46e5; }
+  .cm-acct-name { font-size:13px;font-weight:700;color:var(--text); }
+  .cm-acct-item.selected .cm-acct-name { color:#4f46e5; }
   .cm-acct-box { background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px; }
   .cm-acct-label { font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px; }
   .cm-acct-row { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
@@ -2995,6 +3000,15 @@ window.closeUexModal = function() {
   .cm-charged-badge { background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700; }
   .cm-partial-badge { background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700; }
   .cm-result { font-size:12px;font-weight:600; }
+  .cm-acct-item { display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--border);background:#fff;transition:background .1s; }
+  .cm-acct-item:last-child { border-bottom:none; }
+  .cm-acct-item:not(.cm-acct-selected):hover { background:#f8fafc; }
+  .cm-acct-item.cm-acct-selected { background:#eff4ff; }
+  .cm-acct-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#e2e8f0; }
+  .cm-acct-item.cm-acct-selected .cm-acct-dot { background:#4f46e5; }
+  .cm-acct-name { font-size:13px;font-weight:700;color:var(--text); }
+  .cm-acct-item.cm-acct-selected .cm-acct-name { color:#4f46e5; }
+  .cm-acct-id { font-size:11px;color:var(--muted); }
 </style>
 
 <div id="charge-modal">
@@ -3030,6 +3044,7 @@ import HA from './store.js';
 
 const CHARGE_SERVER = 'https://macro-1-bizfit-charge-938928195180.asia-northeast3.run.app';
 const safe = s => String(s).replace(/[.#$[\]/]/g, '_');
+const esc  = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
 
 let _chargeAccts = {}; // { [key]: { agency, id, pw } }
 
@@ -3055,7 +3070,6 @@ function renderAcctList() {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:8px;">저장된 계정이 없습니다.</div>';
     return;
   }
-  const esc = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
   listEl.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
@@ -3150,30 +3164,23 @@ function renderChargeList() {
     _selectedChargeKey = null;
     return;
   }
-  const esc = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
-  listEl.innerHTML = entries.map(([key, a], i) => {
-    const selected = _selectedChargeKey === key;
-    return `<div onclick="selectChargeAcct('${esc(key)}')"
-      style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;
-             border-bottom:${i < entries.length-1 ? '1px solid var(--border)' : 'none'};
-             background:${selected ? '#eff4ff' : '#fff'};transition:background .1s;"
-      onmouseover="if('${esc(key)}'!==_selectedChargeKey)this.style.background='#f8fafc'"
-      onmouseout="this.style.background='${selected ? '#eff4ff' : '#fff'}'">
-      <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;
-                  background:${selected ? '#4f46e5' : '#e2e8f0'};"></div>
+  listEl.innerHTML = entries.map(([key, a]) =>
+    `<div class="cm-acct-item${_selectedChargeKey === key ? ' cm-acct-selected' : ''}" data-key="${esc(key)}" onclick="selectChargeAcct('${esc(key)}')">
+      <div class="cm-acct-dot"></div>
       <div>
-        <div style="font-size:13px;font-weight:700;color:${selected ? '#4f46e5' : 'var(--text)'};">
-          ${esc(a.agency) || '(대행사 미지정)'}
-        </div>
-        <div style="font-size:11px;color:var(--muted);">${esc(a.id)}</div>
+        <div class="cm-acct-name">${esc(a.agency) || '(대행사 미지정)'}</div>
+        <div class="cm-acct-id">${esc(a.id)}</div>
       </div>
-    </div>`;
-  }).join('');
+    </div>`
+  ).join('');
 }
 
 window.selectChargeAcct = function(key) {
+  if (_selectedChargeKey) {
+    document.querySelector(`#cm-acct-list [data-key="${_selectedChargeKey}"]`)?.classList.remove('cm-acct-selected');
+  }
   _selectedChargeKey = key;
-  renderChargeList();
+  document.querySelector(`#cm-acct-list [data-key="${key}"]`)?.classList.add('cm-acct-selected');
 };
 
 window.openChargeModal = async function() {
