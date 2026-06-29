@@ -895,7 +895,7 @@ document.addEventListener('keydown', function(e) {
     const existing = new Set(bsEntries.map(e => e.mid));
     let added = 0, skipped = 0;
     allSlotsData
-      .filter(s => checkedKeys.has(s._key))
+      .filter(s => checkedKeys.has(s._key) && s.status === 'active')
       .forEach(s => {
         const mid = (s.mid || '').trim();
         if (!mid) return;
@@ -947,7 +947,7 @@ document.addEventListener('keydown', function(e) {
   <div class="dl-prog-lbl" id="dl-prog-lbl"></div>
 </div>
 
-<div class="stat-bar" id="receipt-stat-bar" style="grid-template-columns:repeat(3,1fr)">
+<div class="stat-bar" id="receipt-stat-bar" style="grid-template-columns:repeat(4,1fr)">
   <div class="stat-box">
     <div class="sb-icon" style="background:rgba(245,158,11,.1)">⏳</div>
     <div><div class="sb-label">대기</div><div class="sb-val" id="stat-pending" style="color:var(--warn)">-</div></div>
@@ -959,6 +959,10 @@ document.addEventListener('keydown', function(e) {
   <div class="stat-box">
     <div class="sb-icon" style="background:rgba(16,185,129,.1)">✅</div>
     <div><div class="sb-label">승인</div><div class="sb-val" id="stat-active" style="color:var(--accent)">-</div></div>
+  </div>
+  <div class="stat-box">
+    <div class="sb-icon" style="background:rgba(245,158,11,.08)">🔄</div>
+    <div><div class="sb-label">재접수 대기</div><div class="sb-val" id="stat-requeue" style="color:#b45309">-</div></div>
   </div>
 </div>
 
@@ -1268,6 +1272,8 @@ window.closeUexModal = function() {
       if (s.status === 'deleted') return false;
       if (status === 'requeue_accepted') { if (!(s.isRequeue && s.status === 'accepted')) return false; }
       else if (status === 'requeue_active') { if (!(s.isRequeue && s.status === 'active')) return false; }
+      else if (status === 'accepted') { if (s.status !== 'accepted' || s.isRequeue) return false; }
+      else if (status === 'active') { if (s.status !== 'active' || s.isRequeue) return false; }
       else if (status && s.status !== status) return false;
       if (gradeFilter) {
         if (!['pending','accepted','active'].includes(s.status)) return false;
@@ -1331,7 +1337,7 @@ window.closeUexModal = function() {
       // ── 종료일 지난 active 캠페인 자동 만료 처리 ──────────────
       const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
       const toExpire = allSlots.filter(s =>
-        s.status === 'active' && s.endDate && s.endDate < todayStr
+        (s.status === 'active' || s.status === 'force_stopped') && s.endDate && s.endDate < todayStr
       );
       if (toExpire.length) {
         await Promise.all(toExpire.map(s => HA.updateSlot(s._key, { status: 'ended' })));
@@ -1341,12 +1347,14 @@ window.closeUexModal = function() {
 
     const all      = getFiltered();
     filteredAll    = all;
-    const pending  = allSlots.filter(s => s.status === 'pending').length;
-    const accepted = allSlots.filter(s => s.status === 'accepted').length;
-    const active   = allSlots.filter(s => s.status === 'active').length;
+    const pending  = allSlots.filter(s => s.status === 'pending' && !s.isRequeue).length;
+    const accepted = allSlots.filter(s => s.status === 'accepted' && !s.isRequeue).length;
+    const active   = allSlots.filter(s => s.status === 'active' && !s.isRequeue).length;
+    const requeue  = allSlots.filter(s => s.status === 'requeue').length;
     document.getElementById('stat-pending').textContent  = pending.toLocaleString();
     document.getElementById('stat-accepted').textContent = accepted.toLocaleString();
     document.getElementById('stat-active').textContent   = active.toLocaleString();
+    document.getElementById('stat-requeue').textContent  = requeue.toLocaleString();
 
     const start = (currentPage-1)*PER_PAGE;
     const page  = all.slice(start, start+PER_PAGE);
