@@ -809,42 +809,13 @@ document.addEventListener('keydown', function(e) {
         const originalEndDate = s.endDate || '';
         let patch = {};
         if (didForce && didPause) {
-          patch = { status: 'force_stopped', paused: true, endDate: todayStr };
+          patch = { status: 'force_stopped', paused: true, endDate: todayStr, origEndDate: originalEndDate };
         } else if (didForce) {
-          patch = { status: 'force_stopped', endDate: todayStr };
+          patch = { status: 'force_stopped', endDate: todayStr, origEndDate: originalEndDate };
         } else if (didPause) {
           patch = { status: 'paused' };
         }
         if (Object.keys(patch).length) await window.HA.updateSlot(s._key, patch);
-
-        // 강제종료가 포함된 경우에만 재접수 슬롯 생성
-        if (didForce && originalEndDate) {
-          const origEnd    = new Date(originalEndDate);
-          const tmrw       = new Date(tomorrowStr);
-          // +1: 시작일~종료일 당일 포함 계산
-          const remainDays = Math.round((origEnd - tmrw) / 86400000) + 1;
-          if (remainDays >= 1) {
-            const newStartStr = tomorrowStr; // 내일부터 시작
-            const newSlot = await window.HA.addSlot({
-              agencyId:      s.agencyId      || '',
-              userId:        s.userId        || '',
-              storeName:     s.storeName     || '',
-              url:           s.url           || '',
-              mid:           s.mid           || '',
-              rankKeyword:   s.rankKeyword   || '',
-              searchKeyword: s.searchKeyword || '',
-              dailyTarget:   s.dailyTarget   || 0,
-              days:          remainDays,
-              startDate:     newStartStr,
-              endDate:       originalEndDate,
-              memo:          '강제종료 후 재접수',
-            });
-            // addSlot은 pending으로 저장하므로 requeue + isRequeue 플래그로 덮어씀
-            if (newSlot && newSlot._key) {
-              await window.HA.updateSlot(newSlot._key, { status: 'requeue', isRequeue: true });
-            }
-          }
-        }
       }
       if (window.renderReceipts) window.renderReceipts(false, true);
     } catch(e) { console.error('onBsEntrySuccess 오류:', e); }
@@ -1366,8 +1337,34 @@ window.closeUexModal = function() {
         (s.status === 'active' || s.status === 'force_stopped' || s.status === 'requeue' || s.status === 'paused') && s.endDate && s.endDate < todayStr
       );
       if (toExpire.length) {
-        await Promise.all(toExpire.map(s => HA.updateSlot(s._key, { status: 'ended' })));
-        toExpire.forEach(s => { s.status = 'ended'; });
+        await Promise.all(toExpire.map(async s => {
+          const wasForceStop = s.status === 'force_stopped';
+          await HA.updateSlot(s._key, { status: 'ended' });
+          s.status = 'ended';
+          if (wasForceStop && s.origEndDate) {
+            const origEnd    = new Date(s.origEndDate);
+            const remainDays = Math.round((origEnd - new Date(todayStr)) / 86400000) + 1;
+            if (remainDays >= 1) {
+              const newSlot = await HA.addSlot({
+                agencyId:      s.agencyId      || '',
+                userId:        s.userId        || '',
+                storeName:     s.storeName     || '',
+                url:           s.url           || '',
+                mid:           s.mid           || '',
+                rankKeyword:   s.rankKeyword   || '',
+                searchKeyword: s.searchKeyword || '',
+                dailyTarget:   s.dailyTarget   || 0,
+                days:          remainDays,
+                startDate:     todayStr,
+                endDate:       s.origEndDate,
+                memo:          '강제종료 후 재접수',
+              });
+              if (newSlot && newSlot._key) {
+                await HA.updateSlot(newSlot._key, { status: 'requeue', isRequeue: true });
+              }
+            }
+          }
+        }));
       }
     }
 
@@ -1520,17 +1517,10 @@ window.closeUexModal = function() {
   };
 
   window.acceptFromDetail = async function(key) {
-    const input = document.getElementById('detail-keyword-input');
-    const kw = input ? input.value.trim() : null;
-    const s = allSlots.find(x => x._key === key);
-    if (kw !== null && kw !== (s.searchKeyword||'')) {
-      await HA.updateSlot(key, { searchKeyword: kw });
-      const idx = allSlots.findIndex(x => x._key === key);
-      if (idx !== -1) allSlots[idx].searchKeyword = kw;
-    }
+    await saveDetailFields(key);
     await HA.updateSlot(key, { status: 'accepted' });
-    const idx2 = allSlots.findIndex(x => x._key === key);
-    if (idx2 !== -1) allSlots[idx2].status = 'accepted';
+    const idx = allSlots.findIndex(x => x._key === key);
+    if (idx !== -1) allSlots[idx].status = 'accepted';
     await releaseDetailLock(key);
     document.querySelector('.modal-overlay').remove();
     _detailOpen = false;
@@ -1592,40 +1582,55 @@ window.closeUexModal = function() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
 
+    const escV = v => (v??'').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     overlay.innerHTML = `
       <div class="modal-box">
-        <div class="modal-title">캠페인 상세 정보</div>
-        <dl class="slot-detail">
-          <dt>상품등급</dt><dd>${(() => {
+        <div class="modal-title">캠페인 상세</div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px">상품등급</div>
+          <div>${(() => {
             const d = GRADE_CACHE.get(s.mid);
-            if (!d) return '-';
+            if (!d) return '<span style="color:var(--muted)">-</span>';
             const labels = [...new Map(parseGradeEntries(d).map(g=>[g.gradeLabel,g])).values()]
               .flatMap(g => g.gradeLabel.split(',').map(l => l.trim()).filter(l => l));
-            return labels.length ? labels.map(l=>`<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0">${l}</span>`).join(' ') : '-';
-          })()}</dd>
-          <dt>대행사</dt><dd>${s.agencyId} / ${s.userId}</dd>
-          <dt>플레이스명</dt><dd>${s.storeName}</dd>
-          <dt>순위키워드</dt><dd>${s.rankKeyword}</dd>
-          <dt>URL</dt><dd style="word-break:break-all;font-size:12px">${s.url||'-'}</dd>
-          <dt>MID</dt><dd>${s.mid||'-'}</dd>
-          <dt>일 목표</dt><dd>${s.dailyTarget ? s.dailyTarget.toLocaleString() : '-'}</dd>
-          <dt>일 수</dt><dd>${s.days||'-'}</dd>
-          <dt>기간</dt><dd>${s.startDate} ~ ${s.endDate}</dd>
-          <dt>상태</dt><dd>${statusBadge(s)}</dd>
-          <dt>메모</dt><dd>${s.memo||'-'}</dd>
-          <dt style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
+            return labels.length ? labels.map(l=>`<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0">${l}</span>`).join(' ') : '<span style="color:var(--muted)">-</span>';
+          })()}</div>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px">상태</div>
+          <div>${statusBadge(s)}</div>
+        </div>
+        <div class="modal-row">
+          <div class="modal-field"><label>대행사</label><input id="d-agencyId" value="${escV(s.agencyId)}"></div>
+          <div class="modal-field"><label>담당자</label><input id="d-userId" value="${escV(s.userId)}"></div>
+        </div>
+        <div class="modal-field"><label>플레이스명</label><input id="d-storeName" value="${escV(s.storeName)}"></div>
+        <div class="modal-field"><label>순위키워드</label><input id="d-rankKeyword" value="${escV(s.rankKeyword)}"></div>
+        <div class="modal-field"><label>URL</label><input id="d-url" value="${escV(s.url)}"></div>
+        <div class="modal-field"><label>MID</label><input id="d-mid" value="${escV(s.mid)}"></div>
+        <div class="modal-row">
+          <div class="modal-field"><label>일 목표</label><input type="number" id="d-dailyTarget" value="${escV(s.dailyTarget)}"></div>
+          <div class="modal-field"><label>일 수</label><input type="number" id="d-days" value="${escV(s.days)}"></div>
+        </div>
+        <div class="modal-row">
+          <div class="modal-field"><label>시작일</label><input type="date" id="d-startDate" value="${escV(s.startDate)}"></div>
+          <div class="modal-field"><label>종료일</label><input type="date" id="d-endDate" value="${escV(s.endDate)}"></div>
+        </div>
+        <div class="modal-field"><label>메모</label><textarea id="d-memo">${escV(s.memo)}</textarea></div>
+        <div class="modal-field">
+          <label style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
             <span style="display:flex;align-items:center;gap:6px;">
               검색키워드
               <span id="kw-count-badge" style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">${(s.searchKeyword||'').split(',').map(k=>k.trim()).filter(k=>k.length>0).length}개</span>
             </span>
-            ${(s.mid && HA.getCurrentUser()?.role !== 'guest') ? `<button onclick="toggleMidHistory('${s.mid}','${key}')" id="mid-hist-btn"
+            ${(s.mid && HA.getCurrentUser()?.role !== 'guest') ? `<button onclick="toggleMidHistory('${esc(s.mid)}','${key}')" id="mid-hist-btn"
               style="font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#f8fafc;color:var(--text2);cursor:pointer;font-family:inherit;">
               이전 키워드 보기
             </button>` : ''}
-          </dt>
-          <dd><input type="text" class="detail-kw-input" id="detail-keyword-input" value="${s.searchKeyword||''}" placeholder="키워드를 입력해주세요" oninput="updateKwCount(this.value)"></dd>
-          <dd id="mid-history-area" style="display:none;margin-top:8px;"></dd>
-        </dl>
+          </label>
+          <input type="text" class="detail-kw-input" id="detail-keyword-input" value="${escV(s.searchKeyword)}" placeholder="키워드를 입력해주세요" oninput="updateKwCount(this.value)">
+          <div id="mid-history-area" style="display:none;margin-top:8px;"></div>
+        </div>
         <div class="modal-footer">
           <button class="btn-cancel" onclick="closeDetailModal('${key}')">닫기</button>
           <button class="btn-save" style="background:rgba(59,130,246,1);" onclick="acceptFromDetail('${key}')">접수</button>
@@ -1755,19 +1760,46 @@ window.closeUexModal = function() {
     if (badge) badge.textContent = count + '개';
   };
 
-  // 닫기 시 키워드 자동저장
-  window.closeDetailModal = async function(key) {
-    const input = document.getElementById('detail-keyword-input');
-    const kw = input ? input.value.trim() : null;
+  async function saveDetailFields(key) {
     const s = allSlots.find(x => x._key === key);
-    if (kw !== null && kw !== (s.searchKeyword||'')) {
-      await HA.updateSlot(key, { searchKeyword: kw });
-      const idx = allSlots.findIndex(x => x._key === key);
-      if (idx !== -1) allSlots[idx].searchKeyword = kw;
+    if (!s) return;
+    const read = (id, num) => {
+      const el = document.getElementById(id);
+      if (!el) return undefined;
+      return num ? (Number(el.value) || 0) : el.value.trim();
+    };
+    const fields = {
+      agencyId:      read('d-agencyId'),
+      userId:        read('d-userId'),
+      storeName:     read('d-storeName'),
+      rankKeyword:   read('d-rankKeyword'),
+      url:           read('d-url'),
+      mid:           read('d-mid'),
+      dailyTarget:   read('d-dailyTarget', true),
+      days:          read('d-days', true),
+      startDate:     read('d-startDate'),
+      endDate:       read('d-endDate'),
+      memo:          document.getElementById('d-memo')?.value.trim() ?? '',
+      searchKeyword: read('detail-keyword-input'),
+    };
+    const updates = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (v === undefined) continue;
+      if (String(v) !== String(s[k] ?? '')) updates[k] = v;
     }
+    if (Object.keys(updates).length) {
+      await HA.updateSlot(key, updates);
+      const idx = allSlots.findIndex(x => x._key === key);
+      if (idx !== -1) Object.assign(allSlots[idx], updates);
+    }
+  }
+
+  window.closeDetailModal = async function(key) {
+    await saveDetailFields(key);
     await releaseDetailLock(key);
     document.querySelector('.modal-overlay').remove();
     _detailOpen = false;
+    renderReceipts(false);
   };
 
   // ── 수정 ─────────────────────────────────────────────────
