@@ -823,9 +823,9 @@ document.addEventListener('keydown', function(e) {
     const entry    = bsEntries.find(e => e.mid === mid);
     const didForce = entry ? !!entry.do_force : true;
     const didPause = entry ? !!entry.do_pause : false;
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const todayStr    = new Date().toISOString().slice(0, 10);
+    const tmrwDate    = new Date(); tmrwDate.setDate(tmrwDate.getDate() + 1);
+    const tomorrowStr = tmrwDate.toISOString().slice(0, 10);
     try {
       const slots   = await window.HA.getSlots();
       const targets = slots.filter(s => s.mid === mid && s.status !== 'ended' && s.status !== 'force_stopped');
@@ -833,9 +833,9 @@ document.addEventListener('keydown', function(e) {
         const originalEndDate = s.endDate || '';
         let patch = {};
         if (didForce && didPause) {
-          patch = { status: 'force_stopped', paused: true, endDate: tomorrowStr };
+          patch = { status: 'force_stopped', paused: true, endDate: todayStr };
         } else if (didForce) {
-          patch = { status: 'force_stopped', endDate: tomorrowStr };
+          patch = { status: 'force_stopped', endDate: todayStr };
         } else if (didPause) {
           patch = { status: 'paused' };
         }
@@ -845,11 +845,10 @@ document.addEventListener('keydown', function(e) {
         if (didForce && originalEndDate) {
           const origEnd    = new Date(originalEndDate);
           const tmrw       = new Date(tomorrowStr);
-          const remainDays = Math.round((origEnd - tmrw) / 86400000);
+          // +1: 시작일~종료일 당일 포함 계산
+          const remainDays = Math.round((origEnd - tmrw) / 86400000) + 1;
           if (remainDays >= 1) {
-            const newStart = new Date(tomorrowStr);
-            newStart.setDate(newStart.getDate() + 1);
-            const newStartStr = newStart.toISOString().slice(0, 10);
+            const newStartStr = tomorrowStr; // 내일부터 시작
             const newSlot = await window.HA.addSlot({
               agencyId:      s.agencyId      || '',
               userId:        s.userId        || '',
