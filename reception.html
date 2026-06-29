@@ -723,14 +723,22 @@ document.addEventListener('keydown', function(e) {
         try {
           const wb   = window.XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
           const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' });
-          const start = (rows.length > 0 && isNaN(rows[0][0])) ? 1 : 0;
+          if (!rows.length) { bsLog('⚠️ 빈 파일입니다.', 'warn'); return; }
+          // 헤더 행으로 컬럼 위치 자동 감지
+          const hdr      = rows[0].map(h => String(h||'').trim());
+          const hasHdr   = isNaN(Number(hdr[0]));
+          const midCol   = hasHdr ? Math.max(hdr.findIndex(h => /mid/i.test(h)), 0) : 0;
+          const pauseCol = hasHdr ? hdr.findIndex(h => /임시중단/i.test(h)) : 1;
+          const forceCol = hasHdr ? hdr.findIndex(h => /강제종료/i.test(h)) : 2;
+          const memoCol  = hasHdr ? hdr.findIndex(h => /메모/i.test(h))     : 3;
+          const start    = hasHdr ? 1 : 0;
           let added = 0, skipped = 0;
           for (let r = start; r < rows.length; r++) {
-            const [midRaw, pauseRaw, forceRaw, memoRaw] = rows[r];
-            const mid      = String(midRaw||'').trim();
-            const do_pause = String(pauseRaw||'').trim().toUpperCase() === 'O';
-            const do_force = String(forceRaw||'').trim().toUpperCase() === 'O';
-            const memo     = String(memoRaw||'').trim();
+            const row      = rows[r];
+            const mid      = String(row[midCol]   ||'').trim();
+            const do_pause = pauseCol >= 0 && String(row[pauseCol]||'').trim().toUpperCase() === 'O';
+            const do_force = forceCol >= 0 && String(row[forceCol]||'').trim().toUpperCase() === 'O';
+            const memo     = memoCol  >= 0 ? String(row[memoCol] ||'').trim() : '';
             if (!mid || (!do_pause && !do_force && !memo)) { skipped++; continue; }
             if (bsEntries.some(e => e.mid === mid)) { skipped++; continue; }
             bsEntries.push({ mid, memo, do_pause, do_force, status:'ready', result:'' });
