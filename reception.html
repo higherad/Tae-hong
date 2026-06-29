@@ -973,8 +973,7 @@ import HA from './store.js';
       <div class="ps-row">
         <span class="ps-sect-lbl">고정</span>
         <div class="ps-row-inner" id="psWrapFixed" style="margin-left:28px;"></div>
-        <button class="action-btn" id="dl-split-btn" style="background:#475569;color:#fff;padding:7px 16px;font-size:12px;flex-shrink:0;" onclick="downloadExcelSplit()">📥 단독 분류</button>
-        <button class="action-btn" id="dl-main-btn" style="background:#2563eb;color:#fff;padding:7px 16px;font-size:12px;flex-shrink:0;" onclick="downloadExcel()">📥 전체 시트 분류</button>
+<button class="action-btn" id="dl-main-btn" style="background:#2563eb;color:#fff;padding:7px 16px;font-size:12px;flex-shrink:0;" onclick="downloadExcel()">📥 전체 시트 분류</button>
         <button class="action-btn" id="dl-submit-btn" style="background:#EA580C;color:#fff;padding:7px 16px;font-size:12px;flex-shrink:0;" onclick="submitDirect()">접수</button>
       </div>
     </div>
@@ -2375,56 +2374,6 @@ window.closeUexModal = function() {
     }
   };
 
-  // ── 엑셀 다운로드 (대행사별 · 접수+상품별 파일 분리) ────────
-  window.downloadExcelSplit = function() {
-    const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
-    const target = checkedKeys.length ? allSlots.filter(s => checkedKeys.includes(s._key)) : filteredAll;
-    if (!target.length) { alert('다운로드할 데이터가 없습니다.'); return; }
-    if (!ap().length)   { alert('활성화된 상품이 없습니다.\n상품 유형 설정에서 최소 1개를 켜주세요.'); return; }
-
-    function doDownload() {
-      const agencies = getAgencies(target);
-      const AP = ap();
-      const btn = document.getElementById('dl-split-btn');
-      if (btn) btn.disabled = true;
-      const sleep = ms => new Promise(r => setTimeout(r, ms));
-      const shortD = () => { const d=new Date(); return String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); };
-      const fname = (realAg, label) => realAg ? `${realAg}-${label}.xlsx` : `${shortD()}-${label}.xlsx`;
-      (async () => {
-        try {
-          const totalFiles = agencies.length * AP.length;
-          let done = 0;
-          for (let i = 0; i < agencies.length; i++) {
-            const ag = agencies[i], f = slotsByAgency(target, ag), realAg = ag === '(대행사 미지정)' ? '' : ag;
-
-            for (let j = 0; j < AP.length; j++) {
-              const p = AP[j];
-              setProg(true, Math.round(100*done/totalFiles), `[${ag}] ${p.name} 시트 생성 중...`);
-              await sleep(60);
-              const wb = window.XLSX.utils.book_new();
-              buildProdSheet(wb, f, p);
-              window.XLSX.writeFile(wb, fname(realAg, p.name));
-              done++; await sleep(300);
-            }
-          }
-          setProg(true, 100, `완료 ✅  ${agencies.length}개 대행사 · ${totalFiles}개 파일`);
-          await sleep(2000);
-        } catch(e) {
-          alert('오류: ' + e.message);
-        } finally {
-          if (btn) btn.disabled = false;
-          setProg(false);
-        }
-      })();
-    }
-
-    if (window.XLSX) { doDownload(); } else {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-      s.onload = doDownload;
-      document.head.appendChild(s);
-    }
-  };
 
   // ════════════════════════════════════════════════════════
   // 유저 엑셀 접수 — 관리자가 엑셀로 여러 건을 한 번에 접수 등록
