@@ -143,6 +143,11 @@ const HA = {
     dispatch('ha:slots:updated');
   },
 
+  async deleteSlot(key) {
+    await remove(ref(db, `${PATHS.slots}/${key}`));
+    dispatch('ha:slots:updated');
+  },
+
   // ════════════════════════════════════════════════════════
   // 회원 CRUD
   // ════════════════════════════════════════════════════════

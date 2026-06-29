@@ -994,7 +994,7 @@ document.addEventListener('keydown', function(e) {
         <th><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
         <th>번호</th><th>접수일시</th><th>대행사</th>
         <th>캠페인타입</th><th>플레이스명</th><th>MID</th><th>순위키워드</th>
-        <th>일 수</th><th>시작일</th><th>종료일</th><th>일 목표</th><th>상태</th><th>액션</th><th class="rank-col">순위</th>
+        <th>일 수</th><th>시작일</th><th>종료일</th><th>일 목표</th><th>상태</th><th>액션</th><th class="rank-col">순위</th><th>삭제</th>
       </tr>
     </thead>
     <tbody id="receipt-body">
@@ -1388,6 +1388,9 @@ window.closeUexModal = function() {
           <td class="rank-col">
             <button class="action-btn" style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;" onclick="openRankPopup('${s._key}')">순위</button>
           </td>
+          <td>
+            <button class="action-btn" style="background:rgba(239,68,68,.1);color:#dc2626;font-weight:700;" onclick="deleteSlot('${s._key}')">✕</button>
+          </td>
         </tr>`).join('');
     }
     renderPagination(all.length);
@@ -1483,6 +1486,14 @@ window.closeUexModal = function() {
     await releaseDetailLock(key);
     document.querySelector('.modal-overlay').remove();
     _detailOpen = false;
+    renderReceipts(false);
+  };
+
+  // ── 슬롯 삭제 (임시) ─────────────────────────────────────
+  window.deleteSlot = async function(key) {
+    if (!confirm('이 항목을 삭제하시겠습니까?')) return;
+    await HA.deleteSlot(key);
+    allSlots = allSlots.filter(s => s._key !== key);
     renderReceipts(false);
   };
 
