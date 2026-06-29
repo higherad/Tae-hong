@@ -2967,14 +2967,6 @@ window.closeUexModal = function() {
   #charge-modal .cm-head-title { font-size:15px;font-weight:700; }
   #charge-modal .cm-close { border:none;background:#f1f5f9;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1; }
   #charge-modal .cm-body { padding:20px 24px; }
-  .cm-acct-item { display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;transition:background .1s; }
-  .cm-acct-item:not(:last-child) { border-bottom:1px solid var(--border); }
-  .cm-acct-item:not(.selected):hover { background:#f8fafc; }
-  .cm-acct-item.selected { background:#eff4ff; }
-  .cm-acct-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#e2e8f0; }
-  .cm-acct-item.selected .cm-acct-dot { background:#4f46e5; }
-  .cm-acct-name { font-size:13px;font-weight:700;color:var(--text); }
-  .cm-acct-item.selected .cm-acct-name { color:#4f46e5; }
   .cm-acct-box { background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px; }
   .cm-acct-label { font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px; }
   .cm-acct-row { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
@@ -3155,6 +3147,7 @@ document.getElementById('account-modal').addEventListener('click', e => {
 
 // ── 충전하기 모달 ──────────────────────────────────────────────
 let _selectedChargeKey = null;
+const escCm = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
 
 function renderChargeList() {
   const listEl  = document.getElementById('cm-acct-list');
@@ -3165,11 +3158,11 @@ function renderChargeList() {
     return;
   }
   listEl.innerHTML = entries.map(([key, a]) =>
-    `<div class="cm-acct-item${_selectedChargeKey === key ? ' cm-acct-selected' : ''}" data-key="${esc(key)}" onclick="selectChargeAcct('${esc(key)}')">
+    `<div class="cm-acct-item${_selectedChargeKey === key ? ' cm-acct-selected' : ''}" data-key="${escCm(key)}" onclick="selectChargeAcct('${escCm(key)}')">
       <div class="cm-acct-dot"></div>
       <div>
-        <div class="cm-acct-name">${esc(a.agency) || '(대행사 미지정)'}</div>
-        <div class="cm-acct-id">${esc(a.id)}</div>
+        <div class="cm-acct-name">${escCm(a.agency) || '(대행사 미지정)'}</div>
+        <div class="cm-acct-id">${escCm(a.id)}</div>
       </div>
     </div>`
   ).join('');
