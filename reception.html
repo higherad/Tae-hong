@@ -1111,7 +1111,7 @@ window.closeUexModal = function() {
     active:        '<span class="status-badge s-active">승인</span>',
     force_stopped: '<span class="status-badge s-force-stopped">강제종료</span>',
     paused:        '<span class="status-badge s-paused">임시중단</span>',
-    requeue:       '<span class="status-badge s-requeue">재접수 대기</span>',
+    requeue:       '<span class="status-badge s-requeue">재접수/대기</span>',
     ended:         '<span class="status-badge s-ended">종료</span>',
     expired:       '<span class="status-badge s-ended">종료</span>',
   };
@@ -1119,11 +1119,12 @@ window.closeUexModal = function() {
     if (s.status === 'force_stopped' && s.paused) {
       return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.paused}${stMap.force_stopped}</div>`;
     }
-    const base = stMap[s.status] || s.status;
     if (s.isRequeue && s.status !== 'requeue') {
-      return `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">${stMap.requeue}${base}</div>`;
+      const labelMap = { accepted: '접수', active: '승인', pending: '대기' };
+      const label = labelMap[s.status] || s.status;
+      return `<span class="status-badge s-requeue">재접수/${label}</span>`;
     }
-    return base;
+    return stMap[s.status] || s.status;
   }
 
   // ── 등급 배지 ────────────────────────────────────────────────

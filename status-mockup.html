@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>상태값 목업</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --text: #1e293b; --text2: #64748b; --muted: #94a3b8;
+    --border: #e2e8f0; --bg: #f8fafc; --accent: #10b981;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: var(--text); padding: 32px; }
+  h1 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: var(--text2); margin-bottom: 32px; }
+
+  /* ── 배지 공통 ── */
+  .status-badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .s-pending       { background:rgba(245,158,11,.1);  color:#b45309; }
+  .s-accepted      { background:rgba(59,130,246,.1);  color:#1d4ed8; }
+  .s-active        { background:rgba(16,185,129,.1);  color:#059669; }
+  .s-force-stopped { background:rgba(239,68,68,.1);   color:#dc2626; }
+  .s-paused        { background:rgba(124,58,237,.1);  color:#7c3aed; }
+  .s-requeue       { background:rgba(20,184,166,.1);  color:#0f766e; }
+  .s-ended         { background:#f1f5f9; color:#64748b; border:1px solid var(--border); }
+
+  /* ── 섹션 ── */
+  .section { background:#fff; border-radius:16px; padding:24px; margin-bottom:24px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .section-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:16px; }
+
+  /* ── 배지 그리드 ── */
+  .badge-grid { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }
+  .badge-item { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .badge-label { font-size:10px; color:var(--muted); font-weight:600; }
+  .badge-combo { display:flex; flex-direction:column; gap:3px; align-items:flex-start; }
+
+  /* ── 테이블 ── */
+  .mock-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .mock-table th { background:#f8fafc; padding:10px 12px; text-align:left; font-weight:600; color:var(--text2); border-bottom:2px solid var(--border); font-size:11px; white-space:nowrap; }
+  .mock-table td { padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .mock-table tr:last-child td { border-bottom:none; }
+  .mock-table tr:hover td { background:#f8fafc; }
+
+  /* ── 액션 버튼 ── */
+  .action-btn { padding:4px 10px; border-radius:5px; border:none; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .btn-approve { background:#10b981; color:#fff; }
+  .btn-accept  { background:rgba(59,130,246,.15); color:#1d4ed8; }
+  .btn-back    { background:rgba(245,158,11,.15); color:#b45309; }
+  .btn-detail  { background:#f1f5f9; color:var(--text2); }
+
+  /* ── 흐름도 ── */
+  .flow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  .flow-node { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700; border:1.5px solid; }
+  .flow-arrow { color:var(--muted); font-size:14px; }
+  .fn-pending       { background:rgba(245,158,11,.08);  color:#b45309; border-color:#fcd34d; }
+  .fn-accepted      { background:rgba(59,130,246,.08);  color:#1d4ed8; border-color:#93c5fd; }
+  .fn-active        { background:rgba(16,185,129,.08);  color:#059669; border-color:#6ee7b7; }
+  .fn-force_stopped { background:rgba(239,68,68,.08);   color:#dc2626; border-color:#fca5a5; }
+  .fn-paused        { background:rgba(124,58,237,.08);  color:#7c3aed; border-color:#c4b5fd; }
+  .fn-requeue       { background:rgba(20,184,166,.08);  color:#0f766e; border-color:#5eead4; }
+  .fn-ended         { background:#f1f5f9; color:#64748b; border-color:var(--border); }
+  .divider { height:1px; background:var(--border); margin:20px 0; }
+  .flow-sub { font-size:10px; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+
+<h1>상태값 목업</h1>
+<p class="sub">reception.html 에서 사용하는 모든 상태값 및 배지 정리</p>
+
+<!-- ── 1. 단독 배지 ── -->
+<div class="section">
+  <div class="section-title">단독 상태값</div>
+  <div class="badge-grid">
+    <div class="badge-item">
+      <span class="status-badge s-pending">대기</span>
+      <span class="badge-label">pending</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-accepted">접수</span>
+      <span class="badge-label">accepted</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-active">승인</span>
+      <span class="badge-label">active</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-force-stopped">강제종료</span>
+      <span class="badge-label">force_stopped</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-paused">임시중단</span>
+      <span class="badge-label">paused</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-requeue">재접수/대기</span>
+      <span class="badge-label">requeue</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-requeue">재접수/접수</span>
+      <span class="badge-label">isRequeue + accepted</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-requeue">재접수/승인</span>
+      <span class="badge-label">isRequeue + active</span>
+    </div>
+    <div class="badge-item">
+      <span class="status-badge s-ended">종료</span>
+      <span class="badge-label">ended / expired</span>
+    </div>
+  </div>
+
+  <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+    <div class="section-title" style="margin-bottom:12px;">복합 배지 (세로 2개)</div>
+    <div class="badge-grid">
+      <div class="badge-item">
+        <div class="badge-combo">
+          <span class="status-badge s-paused">임시중단</span>
+          <span class="status-badge s-force-stopped">강제종료</span>
+        </div>
+        <span class="badge-label">force_stopped + paused</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 2. 상태별 액션 버튼 ── -->
+<div class="section">
+  <div class="section-title">상태별 액션 버튼</div>
+  <table class="mock-table">
+    <thead>
+      <tr>
+        <th>배지</th>
+        <th>액션 버튼</th>
+        <th>비고</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="status-badge s-pending">대기</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-accept">접수</button></div></td>
+        <td style="color:var(--muted);font-size:11px"></td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-accepted">접수</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-back">대기</button><button class="action-btn btn-approve">승인</button></div></td>
+        <td style="color:var(--muted);font-size:11px"></td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-active">승인</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-back">대기</button><button class="action-btn btn-accept">접수</button></div></td>
+        <td style="color:var(--muted);font-size:11px"></td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-force-stopped">강제종료</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-approve">승인</button></div></td>
+        <td style="color:var(--muted);font-size:11px">승인 → active</td>
+      </tr>
+      <tr>
+        <td><div class="badge-combo"><span class="status-badge s-paused">임시중단</span><span class="status-badge s-force-stopped">강제종료</span></div></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-approve">승인</button></div></td>
+        <td style="color:var(--muted);font-size:11px">임시중단B + 강제종료 매크로</td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-paused">임시중단</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-approve">승인</button></div></td>
+        <td style="color:var(--muted);font-size:11px">임시중단B 매크로만</td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-requeue">재접수/대기</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-accept">접수</button></div></td>
+        <td style="color:var(--muted);font-size:11px">강제종료 후 자동 생성</td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-requeue">재접수/접수</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-back">재접수/대기</button><button class="action-btn btn-approve">승인</button></div></td>
+        <td style="color:var(--muted);font-size:11px">"대기" 클릭 시 재접수/대기 복귀</td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-requeue">재접수/승인</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button><button class="action-btn btn-back">재접수/대기</button><button class="action-btn btn-accept">접수</button></div></td>
+        <td style="color:var(--muted);font-size:11px">"대기" 클릭 시 재접수/대기 복귀</td>
+      </tr>
+      <tr>
+        <td><span class="status-badge s-ended">종료</span></td>
+        <td><div style="display:flex;gap:5px"><button class="action-btn btn-detail">상세</button></div></td>
+        <td style="color:var(--muted);font-size:11px">액션 없음</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ── 3. 상태 전환 흐름 ── -->
+<div class="section">
+  <div class="section-title">상태 전환 흐름</div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;">일반 캠페인</div>
+    <div class="flow">
+      <div class="flow-node fn-pending">대기</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node fn-accepted">접수</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node fn-active">승인</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node fn-ended">종료</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;">강제종료 매크로</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div class="flow">
+        <div class="flow-node fn-active">승인</div>
+        <span class="flow-arrow">→ 강제종료만 →</span>
+        <div class="flow-node fn-force_stopped">강제종료</div>
+      </div>
+      <div class="flow">
+        <div class="flow-node fn-active">승인</div>
+        <span class="flow-arrow">→ 임시중단B만 →</span>
+        <div class="flow-node fn-paused">임시중단</div>
+      </div>
+      <div class="flow">
+        <div class="flow-node fn-active">승인</div>
+        <span class="flow-arrow">→ 둘 다 →</span>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div class="flow-node fn-paused" style="padding:4px 12px;font-size:11px;">임시중단</div>
+          <div class="flow-node fn-force_stopped" style="padding:4px 12px;font-size:11px;">강제종료</div>
+        </div>
+      </div>
+    </div>
+    <div class="flow-sub">* 강제종료 포함 시, 잔여 일수 있으면 → 재접수/대기 슬롯 자동 생성</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;">재접수 사이클 (isRequeue 플래그 유지)</div>
+    <div class="flow">
+      <div class="flow-node fn-requeue">재접수/대기</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node fn-requeue" style="border-color:#5eead4;">재접수/접수</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node fn-requeue" style="border-color:#5eead4;">재접수/승인</div>
+      <span class="flow-arrow">→ 대기 클릭 →</span>
+      <div class="flow-node fn-requeue">재접수/대기</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
