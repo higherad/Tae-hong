@@ -1617,7 +1617,7 @@ window.closeUexModal = function() {
           <div class="modal-field"><label>시작일</label><input type="date" id="d-startDate" value="${escV(s.startDate)}"></div>
           <div class="modal-field"><label>종료일</label><input type="date" id="d-endDate" value="${escV(s.endDate)}"></div>
         </div>
-        <div class="modal-field"><label>메모</label><textarea id="d-memo">${escV(s.memo)}</textarea></div>
+        <div class="modal-field"><label>메모</label><textarea id="d-memo" rows="1" style="min-height:auto;height:36px;resize:none;overflow:hidden;">${escV(s.memo)}</textarea></div>
         <div class="modal-field">
           <label style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
             <span style="display:flex;align-items:center;gap:6px;">
