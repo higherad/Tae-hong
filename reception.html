@@ -3009,15 +3009,10 @@ window.closeUexModal = function() {
       <button class="cm-close" onclick="closeChargeModal()">✕</button>
     </div>
     <div class="cm-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end;margin-bottom:14px;">
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">대행사명</label>
-          <input type="text" id="cm-agency" placeholder="대행사명"
-            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
-            onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='var(--border)'"
-            onkeydown="if(event.key==='Enter')document.getElementById('cm-amount').focus()">
-        </div>
-        <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;">대행사 선택</div>
+      <div id="cm-acct-list" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;margin-bottom:14px;"></div>
+      <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;">
+        <div style="flex:1;">
           <label style="display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;">충전 금액 (원)</label>
           <input type="text" id="cm-amount" inputmode="numeric" placeholder="0"
             style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
@@ -3025,7 +3020,7 @@ window.closeUexModal = function() {
             onkeydown="if(event.key==='Enter')doCharge()">
         </div>
         <button id="cm-charge-btn" onclick="doCharge()"
-          style="padding:9px 18px;border:none;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;align-self:flex-end;">⚡ 충전</button>
+          style="padding:9px 18px;border:none;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;">⚡ 충전</button>
       </div>
       <div id="cm-charge-result" style="font-size:13px;font-weight:600;min-height:20px;"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:16px;">
@@ -3150,16 +3145,56 @@ document.getElementById('account-modal').addEventListener('click', e => {
 });
 
 // ── 충전하기 모달 ──────────────────────────────────────────────
+let _selectedChargeKey = null;
+
+function renderChargeList() {
+  const listEl  = document.getElementById('cm-acct-list');
+  const entries = Object.entries(_chargeAccts);
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">등록된 계정이 없습니다.<br>🔑 계정 설정에서 먼저 추가해주세요.</div>';
+    _selectedChargeKey = null;
+    return;
+  }
+  const esc = v => (v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
+  listEl.innerHTML = entries.map(([key, a], i) => {
+    const selected = _selectedChargeKey === key;
+    return `<div onclick="selectChargeAcct('${esc(key)}')"
+      style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;
+             border-bottom:${i < entries.length-1 ? '1px solid var(--border)' : 'none'};
+             background:${selected ? '#eff4ff' : '#fff'};transition:background .1s;"
+      onmouseover="if('${esc(key)}'!==_selectedChargeKey)this.style.background='#f8fafc'"
+      onmouseout="this.style.background='${selected ? '#eff4ff' : '#fff'}'">
+      <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;
+                  background:${selected ? '#4f46e5' : '#e2e8f0'};"></div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:${selected ? '#4f46e5' : 'var(--text)'};">
+          ${esc(a.agency) || '(대행사 미지정)'}
+        </div>
+        <div style="font-size:11px;color:var(--muted);">${esc(a.id)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.selectChargeAcct = function(key) {
+  _selectedChargeKey = key;
+  renderChargeList();
+};
+
 window.openChargeModal = async function() {
   document.getElementById('charge-modal').style.display = 'flex';
   const cu = HA.getCurrentUser();
   _chargeAccts = await HA.getChargeAccounts(cu.username).catch(() => ({}));
-  document.getElementById('cm-agency').value = '';
+  _selectedChargeKey = null;
+  // 계정이 하나면 자동 선택
+  const keys = Object.keys(_chargeAccts);
+  if (keys.length === 1) _selectedChargeKey = keys[0];
+  renderChargeList();
   document.getElementById('cm-amount').value = '';
   document.getElementById('cm-charge-result').textContent = '';
   const btn = document.getElementById('cm-charge-btn');
   btn.disabled = false; btn.textContent = '⚡ 충전';
-  document.getElementById('cm-agency').focus();
+  document.getElementById('cm-amount').focus();
 };
 
 window.closeChargeModal = function() {
@@ -3171,21 +3206,19 @@ document.getElementById('charge-modal').addEventListener('click', e => {
 });
 
 window.doCharge = async function() {
-  const agency  = document.getElementById('cm-agency').value.trim();
   const amtStr  = document.getElementById('cm-amount').value.replace(/[^0-9]/g, '');
   const amount  = parseInt(amtStr);
   const resultEl = document.getElementById('cm-charge-result');
   const btn      = document.getElementById('cm-charge-btn');
 
-  if (!agency) { alert('대행사명을 입력해주세요.'); return; }
-  if (!amount || amount <= 0) { alert('충전 금액을 입력해주세요.'); return; }
-
-  const accts = Object.values(_chargeAccts);
-  const acct  = accts.find(a => a.agency === agency);
-  if (!acct) {
-    alert('[' + agency + '] 등록된 계정이 없습니다.\n🔑 계정 설정에서 대행사명을 일치시켜 등록해주세요.');
+  if (!_selectedChargeKey || !_chargeAccts[_selectedChargeKey]) {
+    alert('대행사를 선택해주세요.');
     return;
   }
+  if (!amount || amount <= 0) { alert('충전 금액을 입력해주세요.'); return; }
+
+  const acct   = _chargeAccts[_selectedChargeKey];
+  const agency = acct.agency || acct.id;
   if (!confirm('[' + agency + '] ' + amount.toLocaleString() + '원 충전을 진행하시겠습니까?')) return;
 
   const { id, pw } = acct;
