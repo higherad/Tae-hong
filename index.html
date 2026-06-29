@@ -166,7 +166,7 @@
     }
   </style>
 </head>
-<body>
+<body style="visibility:hidden">
 
 <div class="login-container">
   <div class="login-card">
@@ -203,10 +203,12 @@ const codeInput = document.getElementById('code');
 const loginBtn = document.getElementById('login-btn');
 const errorBox = document.getElementById('error-box');
 
-// 이미 접근한 경우 접수관리로 이동
+// 이미 접근한 경우 접수관리로 이동 (로그인 폼 노출 없이 즉시 리다이렉트)
 const currentUser = JSON.parse(sessionStorage.getItem('ha_current_user') || 'null');
 if (currentUser) {
-  window.location.href = './reception.html';
+  window.location.replace('./reception.html');
+} else {
+  document.body.style.visibility = 'visible';
 }
 
 loginForm.addEventListener('submit', async (e) => {
