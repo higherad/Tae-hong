@@ -2709,7 +2709,7 @@ window.closeUexModal = function() {
   window.submitDirect = function() {
     const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
     const keySet = new Set(checkedKeys);
-    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : filteredAll;
+    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : allSlots;
     const target = base.filter(s => s.status === 'accepted');
     if (!target.length) { alert('접수 상태인 캠페인이 없습니다.\n(승인 완료 항목은 재접수 불필요)'); return; }
     if (!ap().filter(p => !FIXED_PROD_IDS.has(p.id)).length) {
