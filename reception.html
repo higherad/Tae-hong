@@ -220,6 +220,19 @@
   .pm-btn-save:hover{background:#2563eb;}
   .pm-btn-del{padding:6px 12px;border:1px solid rgba(239,68,68,.25);border-radius:7px;background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit;font-weight:700;display:inline-flex;align-items:center;gap:5px;margin-right:auto;}
   .pm-btn-del:hover{background:rgba(239,68,68,.18);}
+  /* ── 비즈핏 접수 모달 ── */
+  .agency-block{margin-bottom:16px;border:1.5px solid #c7d2fe;border-radius:14px;overflow:hidden}
+  .agency-block:last-child{margin-bottom:0}
+  .agency-hd{display:flex;justify-content:space-between;align-items:center;background:#eff4ff;padding:12px 16px;border-bottom:1.5px solid #c7d2fe}
+  .agency-hd .aname{font-size:15px;font-weight:800;color:var(--info)}
+  .agency-hd .ameta{font-size:12px;color:#6366f1;margin-top:1px}
+  .ag-table{width:100%;border-collapse:collapse;font-size:13px}
+  .ag-table thead th{background:#f8fafc;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.3px;padding:9px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  .ag-table tbody tr{border-bottom:1px solid var(--border)}
+  .ag-table tbody tr:last-child{border-bottom:none}
+  .ag-table tbody td{padding:10px 14px}
+  .agency-ft{background:#f0f4ff;border-top:1.5px solid #c7d2fe;padding:11px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  .agency-ft .totals{display:flex;gap:20px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 </style>
 
 <!-- 액션 버튼 -->
@@ -2515,10 +2528,267 @@ window.closeUexModal = function() {
   // 강제종료 불러오기 버튼이 allSlots에 접근할 수 있도록 노출
   window.getAllSlots = () => allSlots;
 
-  // 상품 유형 설정 [접수] 버튼 — BizFit 접수 (TODO 5)
+  // ── 비즈핏 직접 접수 ────────────────────────────────────────
+  const BIZFIT_PROXY  = 'https://bizfit-direct-proxy-938928195180.asia-northeast3.run.app';
+  const BIZFIT_DOMAIN = 'http://higherad.co.kr';
+  const BIZFIT_TAB    = '99';
+
+  async function fetchBizfitAccount(agencyId) {
+    const safe = s => s.replace(/[.#$[\]/]/g,'_');
+    try {
+      const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js');
+      const snap = await get(ref(getDatabase(), `ha/bizfit_charge/${safe(agencyId)}`));
+      return snap.exists() ? snap.val() : null;
+    } catch { return null; }
+  }
+
+  async function callBizfitProxy(path, body) {
+    const res = await fetch(`${BIZFIT_PROXY}${path}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  function buildNormalRows(slots) {
+    const AP = ap();
+    const normalProds = AP.filter(p => !FIXED_PROD_IDS.has(p.id));
+    const rows = [];
+    slots.forEach(r => {
+      const alloc = allocate(AP.slice(), r.dailyTarget||0);
+      normalProds.forEach(prod => {
+        const pp = alloc[prod.id] ?? 0;
+        if (pp <= 0) return;
+        const daysVal = prod.daysMultiplied ? pp*(r.days||0) : (r.days||0);
+        const kw = kwForProd(r.searchKeyword||'', prod);
+        rows.push({
+          _slotKey:   r._key,
+          상품등급명: prod.name,
+          업체명:     r.storeName||'',
+          업체URL:    r.url||'',
+          PID번호:    r.mid||'',
+          순위키워드: r.rankKeyword||'',
+          일목표:     pp,
+          일수:       daysVal,
+          예약일:     r.startDate||'',
+          검색키워드: kw,
+        });
+      });
+    });
+    return rows;
+  }
+
   window.submitDirect = function() {
-    alert('BizFit 접수 기능은 추후 구현 예정입니다.');
+    const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
+    const keySet = new Set(checkedKeys);
+    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : filteredAll;
+    const target = base.filter(s => s.status === 'accepted');
+    if (!target.length) { alert('접수 상태인 캠페인이 없습니다.\n(승인 완료 항목은 재접수 불필요)'); return; }
+    if (!ap().filter(p => !FIXED_PROD_IDS.has(p.id)).length) {
+      alert('활성화된 일반 상품이 없습니다.\n상품 유형 설정에서 최소 1개를 켜주세요.\n(고정 상품은 직접 접수 대상이 아닙니다)');
+      return;
+    }
+    openSubmitModal(target);
   };
+
+  function openSubmitModal(target) {
+    const agencies = getAgencies(target);
+    const plan = agencies.map(ag => {
+      const realAg = ag === '(대행사 미지정)' ? '' : ag;
+      const rows = buildNormalRows(slotsByAgency(target, ag));
+      return { agency: ag, realAg, rows };
+    });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box" style="width:min(96vw,940px);max-height:82vh;overflow-y:auto;overflow-x:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;">
+          <div class="modal-title" style="margin-bottom:0;">비즈핏 접수 확인</div>
+          <button id="submit-apply-btn" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;">접수 신청</button>
+        </div>
+        <div style="font-size:12px;margin-bottom:14px;" id="submit-sub"></div>
+        <div id="submit-body"></div>
+        <div class="modal-footer"><button class="btn-cancel" id="submit-close-btn">닫기</button></div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const bodyEl = overlay.querySelector('#submit-body');
+    let totalStores = 0, totalTarget = 0;
+    plan.forEach(p => {
+      const block = buildSubmitAgencyBlock(p);
+      bodyEl.appendChild(block);
+      totalStores += new Set(p.rows.map(r => r.업체명)).size;
+      totalTarget += p.rows.reduce((a,r)=>a+(r.일목표||0)*(r.일수||0), 0);
+    });
+    overlay.querySelector('#submit-sub').innerHTML =
+      `<span style="color:var(--muted)">대행사 ${plan.length}곳 · 일반 상품 ${totalStores}건 · 목표 합계 ${totalTarget.toLocaleString()} —</span> <span style="color:#dc2626;font-weight:600;">검토 후 접수 신청을 눌러주세요.</span>`;
+
+    overlay.querySelector('#submit-close-btn').onclick = () => { if (!window.bizfitSubmitting) overlay.remove(); };
+    overlay.querySelector('#submit-apply-btn').onclick = () => executeSubmit(plan, overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay && !window.bizfitSubmitting) overlay.remove(); });
+  }
+
+  function buildSubmitAgencyBlock(p) {
+    const block = document.createElement('div');
+    block.className = 'agency-block';
+
+    if (!p.rows.length) {
+      block.style.borderColor = '#fca5a5';
+      block.innerHTML = `<div style="padding:12px 16px;font-weight:700;color:var(--danger);">${escProd(p.agency)}</div>
+        <div style="padding:0 16px 14px;font-size:12px;color:var(--danger);">⚠️ 일반 상품 배분 결과가 없습니다 (목표 0).</div>`;
+      return block;
+    }
+
+    const totalTarget = p.rows.reduce((a,r)=>a+(r.일목표||0)*(r.일수||0), 0);
+    const hd = document.createElement('div');
+    hd.className = 'agency-hd';
+    hd.innerHTML = `<div><div class="aname">${escProd(p.agency)}</div><div class="ameta">총 ${p.rows.length}건 · 목표 합계 ${totalTarget.toLocaleString()}</div></div>`;
+    block.appendChild(hd);
+
+    const wrap = document.createElement('div'); wrap.style.width = '100%';
+    const tbl  = document.createElement('table'); tbl.className = 'ag-table';
+    tbl.style.cssText = 'table-layout:fixed;width:100%';
+    tbl.innerHTML = `<thead><tr>
+      <th style="width:72px">등급</th>
+      <th style="width:100px">업체명</th>
+      <th style="width:130px">URL</th>
+      <th style="width:100px">MID</th>
+      <th style="width:96px">순위키워드</th>
+      <th style="width:62px;text-align:right">일목표</th>
+      <th style="width:44px;text-align:center">일수</th>
+      <th style="width:84px">예약일</th>
+      <th style="width:64px;text-align:center">검색키워드</th>
+      <th style="width:76px;text-align:center">상태</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    p.gradeRowEls = new Map();
+    const ell = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0';
+    p.rows.forEach(r => {
+      const kwCount = (r.검색키워드||'').split(',').map(k=>k.trim()).filter(k=>k).length;
+      const tr = document.createElement('tr');
+      const statusTd = document.createElement('td');
+      statusTd.style.cssText = 'text-align:center;white-space:nowrap';
+      statusTd.textContent = '-';
+      tr.innerHTML = `
+        <td style="${ell};font-weight:700" title="${escProd(r.상품등급명)}">${escProd(r.상품등급명)}</td>
+        <td style="${ell}" title="${escProd(r.업체명)}">${escProd(r.업체명)}</td>
+        <td style="${ell}" title="${escProd(r.업체URL||'')}"><a href="${escProd(r.업체URL||'')}" target="_blank" style="color:var(--info);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escProd(r.업체URL||'-')}</a></td>
+        <td style="${ell};font-size:11px;color:var(--text2)" title="${escProd(r.PID번호||'')}">${escProd(r.PID번호||'-')}</td>
+        <td style="${ell}" title="${escProd(r.순위키워드||'')}">${escProd(r.순위키워드||'-')}</td>
+        <td style="text-align:right;white-space:nowrap">${(r.일목표||0).toLocaleString()}</td>
+        <td style="text-align:center;white-space:nowrap">${r.일수||0}</td>
+        <td style="white-space:nowrap">${escProd(r.예약일||'-')}</td>
+        <td title="${escProd(r.검색키워드||'')}"><span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;white-space:nowrap">${kwCount}개</span></td>
+      `;
+      tr.appendChild(statusTd);
+      tbody.appendChild(tr);
+      if (!p.gradeRowEls.has(r.상품등급명)) p.gradeRowEls.set(r.상품등급명, []);
+      p.gradeRowEls.get(r.상품등급명).push(statusTd);
+    });
+    tbl.appendChild(tbody); wrap.appendChild(tbl); block.appendChild(wrap);
+
+    const ft = document.createElement('div');
+    ft.className = 'agency-ft';
+    ft.innerHTML = '<div class="totals"></div>';
+    block.appendChild(ft);
+    p.msgEl = ft.querySelector('.totals');
+
+    return block;
+  }
+
+  function setGradeStatus(p, gradeName, html) {
+    (p.gradeRowEls.get(gradeName) || []).forEach(td => td.innerHTML = html);
+  }
+  function setAllStatus(p, html) {
+    p.gradeRowEls.forEach((_, name) => setGradeStatus(p, name, html));
+  }
+
+  async function executeSubmit(plan, overlay) {
+    const applyBtn = overlay.querySelector('#submit-apply-btn');
+    const closeBtn = overlay.querySelector('#submit-close-btn');
+    window.bizfitSubmitting = true;
+    applyBtn.disabled = true; applyBtn.textContent = '⏳ 처리 중...'; applyBtn.style.background = '#6b7280';
+    closeBtn.disabled = true;
+    let okTotal = 0, failTotal = 0;
+    const slotMap = new Map(allSlots.map(s => [s._key, s]));
+
+    async function processAgency(p) {
+      if (!p.rows.length) return;
+      setAllStatus(p, '<span style="color:var(--info);">⏳</span>');
+
+      const account = p.realAg ? await fetchBizfitAccount(p.realAg) : null;
+      if (!account) {
+        setAllStatus(p, '<span style="color:var(--danger);">❌ 계정 미등록</span>');
+        if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">비즈핏 계정 정보 미등록 (회원 관리에서 BizFit ID/PW 등록 필요)</span>';
+        failTotal += p.rows.length;
+        return;
+      }
+
+      let gi;
+      try {
+        gi = await callBizfitProxy('/grade-info', { domain: BIZFIT_DOMAIN, loginId: account.id, pwd: account.pw, tab: BIZFIT_TAB, rawData: p.rows });
+      } catch(e) { gi = { success:false, message: '서버 호출 실패: '+e.message }; }
+
+      if (!gi.success || !gi.gradeGroups || !gi.gradeGroups.length) {
+        const msg = gi.message || '전송 가능한 등급이 없습니다.';
+        setAllStatus(p, `<span style="color:var(--danger);" title="${escProd(msg)}">❌ 등급조회 실패</span>`);
+        if (p.msgEl) p.msgEl.innerHTML = `<span style="color:var(--danger);font-size:11px;">${escProd(msg)}</span>`;
+        failTotal += p.rows.length;
+        return;
+      }
+
+      const matchedGrades = new Set();
+      let agencyFail = 0;
+      for (const g of gi.gradeGroups) {
+        const grpRows = p.rows.filter(r => r.상품등급명 === g.gradeName);
+        if (!grpRows.length) continue;
+        matchedGrades.add(g.gradeName);
+        const payloadRows = grpRows.map(({_slotKey, ...rest}) => rest);
+        let result;
+        try {
+          result = await callBizfitProxy('/register', {
+            domain: BIZFIT_DOMAIN, loginId: account.id, pwd: account.pw,
+            tab: g.actualTab || BIZFIT_TAB, gradeName: g.gradeName, classType: g.classType, gradeType: g.gradeType,
+            rowData: payloadRows,
+          });
+        } catch(e) { result = { success:false, message: e.message }; }
+        if (result.success) {
+          okTotal += grpRows.length;
+          const slotKeys = grpRows.map(r => r._slotKey).filter(Boolean);
+          await Promise.all(slotKeys.map(k => HA.approveSlot(k)));
+          slotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.status = 'active'; });
+          setGradeStatus(p, g.gradeName, '<span style="color:var(--accent);">✅ 완료</span>');
+        } else {
+          failTotal += grpRows.length;
+          agencyFail += grpRows.length;
+          setGradeStatus(p, g.gradeName, `<span style="color:var(--danger);" title="${escProd(result.message||'')}">❌ 실패</span>`);
+        }
+      }
+      p.gradeRowEls.forEach((tds, name) => {
+        if (!matchedGrades.has(name)) {
+          setGradeStatus(p, name, '<span style="color:var(--danger);">❌ 등급 불일치</span>');
+          const cnt = byGradeCount(p.rows, name);
+          failTotal += cnt;
+          agencyFail += cnt;
+        }
+      });
+      if (p.msgEl) {
+        p.msgEl.innerHTML = agencyFail
+          ? `<span style="color:var(--danger);font-size:11px;">일부 등급 실패 — 상태 칸에서 사유 확인(마우스오버)</span>`
+          : `<span style="color:var(--accent);font-size:11px;">✅ 전체 접수 완료</span>`;
+      }
+    }
+
+    await Promise.all(plan.map(p => processAgency(p)));
+
+    window.bizfitSubmitting = false;
+    applyBtn.textContent = failTotal ? `완료 — 성공 ${okTotal} / 실패 ${failTotal}` : `✅ 전체 완료 (${okTotal}건)`;
+    applyBtn.style.background = failTotal ? '#b91c1c' : '#16a34a';
+    closeBtn.disabled = false;
+    closeBtn.onclick = () => { overlay.remove(); renderReceipts(false); };
+  }
+
+  function byGradeCount(rows, name) { return rows.filter(r => r.상품등급명 === name).length; }
 
   // 최초 로드
   renderReceipts(false);
