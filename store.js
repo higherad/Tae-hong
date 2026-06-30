@@ -38,7 +38,7 @@ async function remove(r)     { await authReady; return _remove(r); }
 // ── DB 경로 상수 (kimpro) ─────────────────────────────────
 const PATHS = {
   slots: 'kimpro/slots',
-  users: 'kimpro/users',
+  users: 'ha/users',
 };
 
 async function getUserUnitPrice(userId) {
