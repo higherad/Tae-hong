@@ -2500,7 +2500,7 @@ window.closeUexModal = function() {
       : makeGrid(actives, 'kwPct', 'pm-kwpct-');
 
     document.getElementById('pm-ratio-grid').innerHTML = isFixed
-      ? `<div style="grid-column:1/-1;font-size:12px;color:var(--text2);padding:6px 0;"><strong>300타 이상</strong>: 일 목표의 30% &nbsp;/&nbsp; <strong>300타 미만</strong>: 50타 고정</div>`
+      ? `<div style="grid-column:1/-1;font-size:12px;color:var(--text2);padding:6px 0;">일타수의 <strong>30% 고정</strong></div>`
       : makeGrid(actives, 'ratio', 'pm-ratio-');
 
     updateProdModalNotes();
@@ -2558,7 +2558,7 @@ window.closeUexModal = function() {
 
   // ── 분배 로직 ─────────────────────────────────────────────────
 
-  function yupflAlloc(target) { return target >= 300 ? Math.round(target * 0.3) : 50; }
+  function yupflAlloc(target) { return Math.round(target * 0.3); }
 
   function lrm(items, total) {
     if (!items.length) return {};
