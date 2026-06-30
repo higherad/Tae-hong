@@ -1,5 +1,5 @@
 /**
- * STORE.JS — Firebase Realtime Database (tae-hong 저장소)
+ * STORE.JS — Firebase Realtime Database (kimpro 저장소)
  * 통합 파일 - ha-store.js 대체용
  */
 
@@ -35,10 +35,10 @@ async function push(r, v)    { await authReady; return _push(r, v); }
 async function update(r, v)  { await authReady; return _update(r, v); }
 async function remove(r)     { await authReady; return _remove(r); }
 
-// ── DB 경로 상수 (tae-hong) ────────────────────────────────
+// ── DB 경로 상수 (kimpro) ─────────────────────────────────
 const PATHS = {
-  slots: 'tae-hong/slots',
-  users: 'tae-hong/users',
+  slots: 'kimpro/slots',
+  users: 'kimpro/users',
 };
 
 async function getUserUnitPrice(userId) {
@@ -172,29 +172,29 @@ const HA = {
   // ════════════════════════════════════════════════════════
 
   async getPaidSet() {
-    const snap = await get(ref(db, 'tae-hong/paid'));
+    const snap = await get(ref(db, 'kimpro/paid'));
     if (!snap.exists()) return new Set();
     const val = snap.val();
     return new Set(Object.keys(val).filter(k => val[k]));
   },
 
   async setPaid(key, paid) {
-    if (paid) await set(ref(db, `tae-hong/paid/${key}`), true);
-    else       await remove(ref(db, `tae-hong/paid/${key}`));
+    if (paid) await set(ref(db, `kimpro/paid/${key}`), true);
+    else       await remove(ref(db, `kimpro/paid/${key}`));
   },
 
   async getRefunds() {
-    const snap = await get(ref(db, 'tae-hong/refunds'));
+    const snap = await get(ref(db, 'kimpro/refunds'));
     return snap.exists() ? snap.val() : {};
   },
 
   async setRefundAmount(key, val) {
-    if (!val) await remove(ref(db, `tae-hong/refunds/${key}`));
-    else       await set(ref(db, `tae-hong/refunds/${key}`), val);
+    if (!val) await remove(ref(db, `kimpro/refunds/${key}`));
+    else       await set(ref(db, `kimpro/refunds/${key}`), val);
   },
 
   async saveSettleSnapshot(key, data, overwrite = false) {
-    const r = ref(db, `tae-hong/settle_snapshots/${key}`);
+    const r = ref(db, `kimpro/settle_snapshots/${key}`);
     if (!overwrite) {
       const snap = await get(r);
       if (snap.exists()) return;
@@ -203,17 +203,17 @@ const HA = {
   },
 
   async getAllSettleSnapshots() {
-    const snap = await get(ref(db, 'tae-hong/settle_snapshots'));
+    const snap = await get(ref(db, 'kimpro/settle_snapshots'));
     return snap.exists() ? snap.val() : {};
   },
 
   async deleteSettleSnapshot(key) {
-    await remove(ref(db, `tae-hong/settle_snapshots/${key}`));
+    await remove(ref(db, `kimpro/settle_snapshots/${key}`));
   },
 
   async getChargeAccounts(username) {
     const safeU = username.replace(/[.#$[\]/]/g, '_');
-    const snap  = await get(ref(db, `tae-hong/charge_accounts/${safeU}`));
+    const snap  = await get(ref(db, `kimpro/charge_accounts/${safeU}`));
     if (!snap.exists()) return {};
     const val = snap.val();
     // 구버전 단일 계정 { id, pw } 자동 변환
@@ -224,13 +224,13 @@ const HA = {
   async saveChargeAccount(username, key, data) {
     const safeU = username.replace(/[.#$[\]/]/g, '_');
     const safeK = (key || '_default').replace(/[.#$[\]/]/g, '_');
-    await set(ref(db, `tae-hong/charge_accounts/${safeU}/${safeK}`), data);
+    await set(ref(db, `kimpro/charge_accounts/${safeU}/${safeK}`), data);
   },
 
   async deleteChargeAccount(username, key) {
     const safeU = username.replace(/[.#$[\]/]/g, '_');
     const safeK = key.replace(/[.#$[\]/]/g, '_');
-    await remove(ref(db, `tae-hong/charge_accounts/${safeU}/${safeK}`));
+    await remove(ref(db, `kimpro/charge_accounts/${safeU}/${safeK}`));
   },
 
 };

@@ -873,12 +873,12 @@ document.addEventListener('keydown', function(e) {
 <script type="module">
 import HA from './store.js';
 (async function() {
-  const snap = await HA.getDoc('tae-hong/bizfit_stop').catch(() => null);
+  const snap = await HA.getDoc('kimpro/bizfit_stop').catch(() => null);
   if (snap && snap.exists()) {
     const data = snap.val();
     if (Array.isArray(data) && window._bsSetEntries) window._bsSetEntries(data);
   }
-  window.bsFbSave = (data) => HA.setDoc('tae-hong/bizfit_stop', data).catch(e => console.error('bs save error:', e));
+  window.bsFbSave = (data) => HA.setDoc('kimpro/bizfit_stop', data).catch(e => console.error('bs save error:', e));
 })();
 </script>
 
@@ -2280,7 +2280,7 @@ window.closeUexModal = function() {
 
   function getProdSettingsPath() {
     const cu = window.HA?.getCurrentUser?.();
-    return cu?.id ? `tae-hong/prodSettings/${cu.id}` : null;
+    return cu?.id ? `kimpro/prodSettings/${cu.id}` : null;
   }
   async function loadProdSettings() {
     const path = getProdSettingsPath();
