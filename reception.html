@@ -769,8 +769,9 @@ document.addEventListener('keydown', function(e) {
   // 서버 상태 확인
   (async function() {
     const badge = document.getElementById('bs-srv-badge');
-    for (let i = 0; i < 3; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 3000));
+    bsLog('⏳ 서버 연결 확인 중...', 'info');
+    let attempt = 0;
+    while (true) {
       try {
         const res = await fetch(`${SERVER}/ping`, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
@@ -780,10 +781,11 @@ document.addEventListener('keydown', function(e) {
           return;
         }
       } catch(_) {}
+      attempt++;
+      badge.textContent = '❌ 서버 연결 실패';
+      badge.className = 'bs-srv-badge bs-srv-err';
+      bsLog(`↻ 서버 연결 실패 — ${attempt}번째 재시도 중...`, 'warn');
     }
-    badge.textContent = '❌ 서버 연결 실패';
-    badge.className = 'bs-srv-badge bs-srv-err';
-    bsLog('⚠️ 서버 연결 실패 — 잠시 후 다시 시도해주세요.', 'warn');
   })();
 
   // 강제종료 성공 시 해당 MID 슬롯 상태 자동 변경 + 재접수 슬롯 생성
