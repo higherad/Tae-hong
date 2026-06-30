@@ -782,9 +782,10 @@ document.addEventListener('keydown', function(e) {
         }
       } catch(_) {}
       attempt++;
-      badge.textContent = '❌ 서버 연결 실패';
+      badge.textContent = `❌ 연결 실패 (${attempt}회)`;
       badge.className = 'bs-srv-badge bs-srv-err';
-      bsLog(`↻ 서버 연결 실패 — ${attempt}번째 재시도 중...`, 'warn');
+      if (attempt === 1 || attempt % 10 === 0) bsLog(`↻ 서버 연결 실패 — ${attempt}번째 재시도 중...`, 'warn');
+      await new Promise(r => setTimeout(r, 5000));
     }
   })();
 
