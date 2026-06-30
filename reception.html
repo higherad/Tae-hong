@@ -1621,75 +1621,11 @@ window.closeUexModal = function() {
   const GRADE_CACHE = new Map();
   const GRADE_FB    = 'https://higherad-b9d62-default-rtdb.asia-southeast1.firebasedatabase.app/ha/grades';
 
-  // ── 상세 팝업 잠금 (동시 편집 방지) ─────────────────────────
-  const LOCK_FB        = 'https://higherad-b9d62-default-rtdb.asia-southeast1.firebasedatabase.app/ha/detail_locks';
-  const LOCK_TTL_MS    = 10 * 60 * 1000; // 10분 초과 잠금은 자동 무효
-  const LOCK_CHECK_CACHE = new Map();    // key → { conflict, by, ts }
-  const LOCK_CACHE_TTL   = 10_000;      // 10초 캐시
-
   // grades Firebase 데이터 파싱 (구: 배열/객체of객체, 신: 단일 객체)
   function parseGradeEntries(data) {
     if (!data) return [];
     if (typeof data.gradeLabel === 'string') return [data];
     return Array.isArray(data) ? data : Object.values(data);
-  }
-
-  // 잠금 획득 — Firebase 트랜잭션으로 충돌(check-then-write race) 없이 원자적으로 처리
-  async function acquireDetailLock(key) {
-    const cu        = window.HA?.getCurrentUser?.() || {};
-    const staffId   = cu.username || cu.id || 'unknown';
-    const staffName = cu.name || staffId;
-    const lockData  = { staffId, staffName, lockedAt: new Date().toISOString() };
-    const { getDatabase, ref, runTransaction, onDisconnect } = await import(
-      'https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js'
-    );
-    const lockRef = ref(getDatabase(), `ha/detail_locks/${key}`);
-    let conflictBy = null;
-    const result = await runTransaction(lockRef, current => {
-      if (current && current.staffId !== staffId) {
-        const age = Date.now() - new Date(current.lockedAt).getTime();
-        if (age < LOCK_TTL_MS) {
-          conflictBy = current.staffName || current.staffId;
-          return;
-        }
-      }
-      return lockData;
-    }, { applyLocally: false });
-    if (!result.committed) {
-      const by = conflictBy || 'other staff';
-      LOCK_CHECK_CACHE.set(key, { conflict: true, by, ts: Date.now() });
-      return { acquired: false, by };
-    }
-    LOCK_CHECK_CACHE.delete(key);
-    onDisconnect(lockRef).remove();
-    return { acquired: true };
-  }
-
-  async function releaseDetailLock(key) {
-    LOCK_CHECK_CACHE.delete(key);
-    try {
-      await fetch(`${LOCK_FB}/${key}.json`, { method: 'DELETE' });
-      const { getDatabase, ref, onDisconnect } = await import(
-        'https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js'
-      );
-      onDisconnect(ref(getDatabase(), `ha/detail_locks/${key}`)).cancel();
-    } catch (_) {}
-  }
-
-  function showLockNotice(byName) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal-box" style="width:340px;text-align:center;padding:36px 28px;">
-        <div style="font-size:32px;margin-bottom:14px;">🔒</div>
-        <div class="modal-title" style="margin-bottom:8px;">편집 중</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:24px;">
-          <strong style="color:var(--text)">${byName}</strong> 님이 현재 이 항목을<br>편집하고 있습니다.<br>
-          <span style="font-size:12px;color:var(--muted)">창을 닫으면 다시 열 수 있습니다.</span>
-        </div>
-        <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">확인</button>
-      </div>`;
-    document.body.appendChild(overlay);
   }
 
   async function fetchGrade(mid) {
@@ -2006,7 +1942,6 @@ window.closeUexModal = function() {
     await HA.updateSlot(key, { status: 'accepted' });
     const idx = allSlots.findIndex(x => x._key === key);
     if (idx !== -1) allSlots[idx].status = 'accepted';
-    await releaseDetailLock(key);
     document.querySelector('.modal-overlay').remove();
     _detailOpen = false;
     renderReceipts(false);
@@ -2041,27 +1976,6 @@ window.closeUexModal = function() {
     const s = allSlots.find(x => x._key === key);
     if (!s) return;
     _detailOpen = true;
-
-    // 캐시에 충돌 기록이 있으면 네트워크 없이 즉시 차단
-    const _cached = LOCK_CHECK_CACHE.get(key);
-    if (_cached && _cached.conflict && Date.now() - _cached.ts < LOCK_CACHE_TTL) {
-      _detailOpen = false;
-      showLockNotice(_cached.by);
-      return;
-    }
-    let lock;
-    try {
-      lock = await acquireDetailLock(key);
-    } catch (e) {
-      _detailOpen = false;
-      alert('Failed to acquire detail lock. Please try again.');
-      return;
-    }
-    if (!lock.acquired) {
-      _detailOpen = false;
-      showLockNotice(lock.by);
-      return;
-    }
 
     // modal 즉시 표시 (낙관적 UI)
     const overlay = document.createElement('div');
@@ -2282,7 +2196,6 @@ window.closeUexModal = function() {
 
   window.closeDetailModal = async function(key) {
     await saveDetailFields(key);
-    await releaseDetailLock(key);
     document.querySelector('.modal-overlay').remove();
     _detailOpen = false;
     renderReceipts(false);
@@ -3423,19 +3336,6 @@ window.closeUexModal = function() {
   // Firebase SDK 미리 로드 — 첫 상세 클릭 딜레이 제거
   import('https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js').catch(() => {});
 
-  // lock 전체 상태 프리페치 — TCP 예열 + 캐시 초기화로 첫 상세 클릭 시 네트워크 없이 즉시 확인
-  fetch(`${LOCK_FB}.json`).then(r => r.ok ? r.json() : null).then(data => {
-    if (!data || typeof data !== 'object') return;
-    const cu   = window.HA?.getCurrentUser?.() || {};
-    const myId = cu.username || cu.id || 'unknown';
-    Object.entries(data).forEach(([key, lock]) => {
-      if (!lock) return;
-      const age = Date.now() - new Date(lock.lockedAt).getTime();
-      if (lock.staffId !== myId && age < LOCK_TTL_MS) {
-        LOCK_CHECK_CACHE.set(key, { conflict: true, by: lock.staffName || lock.staffId, ts: Date.now() });
-      }
-    });
-  }).catch(() => {});
 
 })();
 </script>
@@ -3667,10 +3567,6 @@ window.saveAccountModal = async function() {
   document.getElementById('acct-pw').value = '';
 };
 
-document.getElementById('account-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('account-modal')) closeAccountModal();
-});
-
 // ── 충전하기 모달 ──────────────────────────────────────────────
 let _selectedChargeKey = null;
 
@@ -3721,8 +3617,10 @@ window.closeChargeModal = function() {
   document.getElementById('charge-modal').style.display = 'none';
 };
 
-document.getElementById('charge-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('charge-modal')) closeChargeModal();
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('account-modal').style.display !== 'none') closeAccountModal();
+  if (document.getElementById('charge-modal').style.display !== 'none') closeChargeModal();
 });
 
 window.doCharge = async function() {
