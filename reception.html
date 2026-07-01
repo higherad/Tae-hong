@@ -81,7 +81,7 @@
   .btn-approve { background:var(--accent); color:#fff; }
   .btn-approve:hover { background:var(--accent2); }
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9000; display:flex; align-items:center; justify-content:center; }
-  .modal-box { background:#fff; border-radius:16px; width:520px; max-height:80vh; overflow-y:auto; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,.2); }
+  .modal-box { background:#fff; border-radius:16px; width:520px; max-height:80vh; overflow-y:auto; overscroll-behavior:contain; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,.2); }
   .modal-title { font-size:17px; font-weight:700; margin-bottom:20px; }
   .modal-field { margin-bottom:14px; }
   .modal-field label { display:block; font-size:12px; color:var(--text2); font-weight:600; margin-bottom:5px; }
@@ -105,6 +105,10 @@
   @keyframes spin { to{transform:rotate(360deg)} }
   .detail-kw-input { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit; outline:none; color:var(--text); box-sizing:border-box; margin-top:3px; }
   .detail-kw-input:focus { border-color:var(--accent); }
+  /* 접수 모달 탭 */
+  .submit-tab{padding:9px 22px;font-size:13px;font-weight:700;border:none;border-bottom:3px solid transparent;background:none;cursor:pointer;color:var(--text2);font-family:inherit;margin-bottom:-2px;transition:color .15s,border-color .15s;}
+  .submit-tab.active{color:var(--info);border-bottom-color:var(--info);}
+  .submit-tab:disabled{opacity:.3;cursor:not-allowed;}
   .stat-bar { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
   .stat-box { background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; text-align:center; }
   .stat-box .sb-icon { width:38px; height:38px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
@@ -2039,9 +2043,6 @@ window.closeUexModal = function() {
         </div>
       </div>`;
     document.body.appendChild(overlay);
-
-    // 잠금 확인 + 쓰기 백그라운드 — 예열된 연결로 빠르게 완료
-    // 충돌이면 modal 닫고 알림, 아니면 잠금 쓰기
   };
 
   // ── Firebase에서 MID로 현재 키워드 조회 (오늘 값 단순 덮어쓰기) ──
@@ -2701,6 +2702,35 @@ window.closeUexModal = function() {
     window.XLSX.utils.book_append_sheet(wb, ws, label);
   }
 
+  function buildYoupflSheet(wb, f, sheetName) {
+    const yupfl = ap().find(p => p.fixedAlloc);
+    if (!yupfl) return;
+    const ws = {};
+    const headers = ['순위키워드', '작업키워드', '플레이스ID', '작업타수', '신청일수', '미션', '익일시작'];
+    headers.forEach((h, ci) => {
+      sc(ws, 0, ci, h, {font:{bold:true,color:{rgb:'FFFFFF'}}, fill:'1F2937'});
+    });
+    const today = new Date(); today.setHours(0,0,0,0);
+    let curRow = 1;
+    f.forEach(r => {
+      const yAmt = Math.min(yupflAlloc(r.dailyTarget||0), r.dailyTarget||0);
+      if (yAmt <= 0) return;
+      const workKw = kwForProd(r.searchKeyword||'', yupfl);
+      const start  = r.startDate ? new Date(r.startDate) : today;
+      start.setHours(0,0,0,0);
+      const ikil = Math.max(0, Math.round((start - today) / 86400000));
+      const row  = [r.rankKeyword||'', workKw, r.mid||'', yAmt, r.days||0, 0, ikil];
+      row.forEach((v, ci) => {
+        sc(ws, curRow, ci, v, { align: ci <= 2 ? 'left' : 'center' });
+      });
+      curRow++;
+    });
+    if (curRow < 2) curRow = 2;
+    ws['!ref']  = window.XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:curRow-1,c:6}});
+    ws['!cols'] = [{wch:18},{wch:40},{wch:14},{wch:8},{wch:8},{wch:8},{wch:8}];
+    window.XLSX.utils.book_append_sheet(wb, ws, sheetName || '유입플');
+  }
+
   function buildProdSheet(wb, f, prod) {
     const ws = {};
     const AP = ap();
@@ -2784,7 +2814,10 @@ window.closeUexModal = function() {
             const wb = window.XLSX.utils.book_new();
             buildJusuSheet(wb, f);
             buildJumuSheet_(wb, f, '일반', p => !FIXED_PROD_IDS.has(p.id));
-            buildJumuSheet_(wb, f, '고정', p =>  FIXED_PROD_IDS.has(p.id));
+            ap().filter(p => FIXED_PROD_IDS.has(p.id)).forEach(prod => {
+              if (prod.fixedAlloc) buildYoupflSheet(wb, f, prod.name);
+              else buildJumuSheet_(wb, f, prod.name, p => p.id === prod.id);
+            });
             window.XLSX.writeFile(wb, realAg ? `${realAg}-주문서.xlsx` : `주문서-${shortD()}.xlsx`);
             await sleep(300);
           }
@@ -3081,62 +3114,156 @@ window.closeUexModal = function() {
     return rows;
   }
 
+  function buildYoupflRows(slots) {
+    const yupfl = ap().find(p => p.fixedAlloc);
+    if (!yupfl) return [];
+    return slots.map(s => {
+      const yAmt = Math.min(yupflAlloc(s.dailyTarget||0), s.dailyTarget||0);
+      if (yAmt <= 0) return null;
+      return {
+        _slotKey:  s._key,
+        agencyId:  s.agencyId||'(대행사 미지정)',
+        storeName: s.storeName||'',
+        rankKw:    s.rankKeyword||'',
+        workKw:    yupfl ? kwForProd(s.searchKeyword||'', yupfl) : (s.searchKeyword||''),
+        placeId:   s.mid||'',
+        target:    yAmt,
+        days:      s.days||0,
+        startDate: s.startDate||'',
+      };
+    }).filter(Boolean);
+  }
+
   window.submitDirect = function() {
     const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
     const keySet = new Set(checkedKeys);
     const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : allSlots;
     const target = base.filter(s => s.status === 'accepted');
     if (!target.length) { alert('접수 상태인 캠페인이 없습니다.\n(승인 완료 항목은 재접수 불필요)'); return; }
-    if (!ap().filter(p => !FIXED_PROD_IDS.has(p.id)).length) {
-      alert('활성화된 일반 상품이 없습니다.\n상품 유형 설정에서 최소 1개를 켜주세요.\n(고정 상품은 직접 접수 대상이 아닙니다)');
+    const hasNormal = ap().some(p => !FIXED_PROD_IDS.has(p.id));
+    const hasFixed  = ap().some(p => p.fixedAlloc);
+    if (!hasNormal && !hasFixed) {
+      alert('활성화된 상품이 없습니다.\n상품 유형 설정에서 최소 1개를 켜주세요.');
       return;
     }
     openSubmitModal(target);
   };
 
   function openSubmitModal(target) {
-    const agencies = getAgencies(target);
-    const plan = agencies.map(ag => {
-      const realAg = ag === '(대행사 미지정)' ? '' : ag;
-      const rows = buildNormalRows(slotsByAgency(target, ag));
-      return { agency: ag, realAg, rows };
-    });
+    const agencies   = getAgencies(target);
+    const normalPlan = agencies.map(ag => ({
+      agency: ag, realAg: ag === '(대행사 미지정)' ? '' : ag,
+      rows: buildNormalRows(slotsByAgency(target, ag)),
+    }));
+    const yupflRows  = buildYoupflRows(target);
+    const hasNormal  = ap().some(p => !FIXED_PROD_IDS.has(p.id));
+    const hasFixed   = yupflRows.length > 0;
+    const defaultTab = hasNormal ? 'normal' : 'fixed';
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
       <div class="modal-box" style="width:min(96vw,940px);max-height:82vh;overflow-y:auto;overflow-x:hidden;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;">
-          <div class="modal-title" style="margin-bottom:0;">비즈핏 접수 확인</div>
-          <button id="submit-apply-btn" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;">접수 신청</button>
+          <div class="modal-title" style="margin-bottom:0;">접수 확인</div>
         </div>
-        <div style="font-size:12px;margin-bottom:14px;" id="submit-sub"></div>
-        <div id="submit-body"></div>
-        <div class="modal-footer"><button class="btn-cancel" id="submit-close-btn">닫기</button></div>
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px;">
+          <button id="stab-normal" class="submit-tab${defaultTab==='normal'?' active':''}"
+            onclick="switchSubmitTab('normal')"${!hasNormal?' disabled':''}>일반</button>
+          <button id="stab-fixed" class="submit-tab${defaultTab==='fixed'?' active':''}"
+            onclick="switchSubmitTab('fixed')"${!hasFixed?' disabled':''}>고정</button>
+        </div>
+        <div id="stab-panel-normal" style="display:${defaultTab==='normal'?'block':'none'}">
+          <div style="font-size:12px;margin-bottom:14px;" id="submit-sub"></div>
+          <div id="submit-body"></div>
+          <div class="modal-footer">
+            <button class="btn-cancel" id="submit-close-btn">닫기</button>
+            <button id="submit-apply-btn" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;">접수 신청</button>
+          </div>
+        </div>
+        <div id="stab-panel-fixed" style="display:${defaultTab==='fixed'?'block':'none'}">
+          <div style="font-size:12px;margin-bottom:14px;" id="youpfl-sub"></div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+            <span style="font-size:12px;font-weight:700;color:#92400e;white-space:nowrap;">미션</span>
+            <input type="number" id="youpfl-mission" min="0" value=""
+              style="width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-weight:700;font-family:inherit;outline:none;text-align:center;">
+            <span style="font-size:11px;color:var(--muted);margin-left:auto;">시작일 기준 자동 계산 | 당일=0, 익일=1, N일 후=N</span>
+          </div>
+          <div id="youpfl-body"></div>
+          <div class="modal-footer">
+            <button class="btn-cancel" id="youpfl-close-btn">닫기</button>
+            <button id="youpfl-apply-btn" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;">접수 신청</button>
+          </div>
+        </div>
       </div>`;
     document.body.appendChild(overlay);
 
-    const bodyEl = overlay.querySelector('#submit-body');
-    let totalStores = 0, totalTarget = 0;
-    plan.forEach(p => {
-      const block = buildSubmitAgencyBlock(p);
-      bodyEl.appendChild(block);
-      totalStores += new Set(p.rows.map(r => r.업체명)).size;
-      totalTarget += p.rows.reduce((a,r)=>a+(r.일목표||0)*(r.일수||0), 0);
-    });
-    overlay.querySelector('#submit-sub').innerHTML =
-      `<span style="color:var(--muted)">대행사 ${plan.length}곳 · 일반 상품 ${totalStores}건 · 목표 합계 ${totalTarget.toLocaleString()} —</span> <span style="color:#dc2626;font-weight:600;">검토 후 접수 신청을 눌러주세요.</span>`;
+    // 일반+고정 동시 활성 시 양쪽 모두 완료해야 승인으로 전환하는 게이트
+    const gate = (hasNormal && hasFixed) ? {
+      normalKeys: null,
+      fixedKeys: null,
+      slotMap: new Map(allSlots.map(s => [s._key, s])),
+      async tryApprove() {
+        if (this.normalKeys === null || this.fixedKeys === null) return;
+        const keys = [...this.normalKeys].filter(k => this.fixedKeys.has(k));
+        if (keys.length) {
+          await Promise.all(keys.map(k => HA.approveSlot(k)));
+          keys.forEach(k => { const s = this.slotMap.get(k); if (s) s.status = 'active'; });
+        }
+        renderReceipts(false);
+      }
+    } : null;
 
-    overlay.querySelector('#submit-close-btn').onclick = () => { if (!window.bizfitSubmitting) overlay.remove(); };
-    const applyBtn = overlay.querySelector('#submit-apply-btn');
-    const allActive = target.every(s => s.status === 'active');
-    if (allActive) {
-      applyBtn.disabled = true; applyBtn.textContent = '✅ 전체 완료'; applyBtn.style.background = '#475569'; applyBtn.style.cursor = 'default';
-    } else {
-      applyBtn.onclick = () => executeSubmit(plan, overlay);
+    // 일반 탭 구성
+    if (hasNormal) {
+      const bodyEl = overlay.querySelector('#submit-body');
+      let totalStores = 0, totalTarget = 0;
+      normalPlan.forEach(p => {
+        const block = buildSubmitAgencyBlock(p);
+        bodyEl.appendChild(block);
+        totalStores += new Set(p.rows.map(r => r.업체명)).size;
+        totalTarget += p.rows.reduce((a,r)=>a+(r.일목표||0)*(r.일수||0), 0);
+      });
+      overlay.querySelector('#submit-sub').innerHTML =
+        `<span style="color:var(--muted)">대행사 ${normalPlan.length}곳 · 일반 상품 ${totalStores}건 · 목표 합계 ${totalTarget.toLocaleString()} —</span> <span style="color:#dc2626;font-weight:600;">검토 후 접수 신청을 눌러주세요.</span>`;
+      const applyBtn = overlay.querySelector('#submit-apply-btn');
+      const allActive = target.every(s => s.status === 'active');
+      if (allActive) {
+        applyBtn.disabled = true; applyBtn.textContent = '✅ 전체 완료'; applyBtn.style.background = '#475569'; applyBtn.style.cursor = 'default';
+      } else {
+        applyBtn.onclick = () => executeSubmit(normalPlan, overlay, gate);
+      }
     }
+
+    // 고정 탭 구성
+    const youpflBodyEl = overlay.querySelector('#youpfl-body');
+    if (hasFixed) {
+      const yupflAgencies = [...new Set(yupflRows.map(r => r.agencyId))];
+      yupflAgencies.forEach(ag => {
+        const agRows = yupflRows.filter(r => r.agencyId === ag);
+        youpflBodyEl.appendChild(buildYoupflTableBlock(agRows, ag));
+      });
+      const totalTarget = yupflRows.reduce((a,r) => a+(r.target||0)*(r.days||0), 0);
+      overlay.querySelector('#youpfl-sub').innerHTML =
+        `<span style="color:var(--muted)">대행사 ${yupflAgencies.length}곳 · 유입플 ${yupflRows.length}건 · 목표 합계 ${totalTarget.toLocaleString()} —</span> <span style="color:#dc2626;font-weight:600;">검토 후 접수 신청을 눌러주세요.</span>`;
+      overlay.querySelector('#youpfl-apply-btn').onclick = () => executeYoupflSubmit(yupflRows, overlay, gate);
+    } else {
+      overlay.querySelector('#youpfl-sub').textContent = '유입플 배분 대상 슬롯이 없습니다.';
+      overlay.querySelector('#youpfl-apply-btn').disabled = true;
+    }
+    overlay.querySelector('#submit-close-btn').onclick = () => { if (!window.bizfitSubmitting) overlay.remove(); };
+    overlay.querySelector('#youpfl-close-btn').onclick = () => overlay.remove();
     overlay.addEventListener('click', e => { if (e.target === overlay && !window.bizfitSubmitting) overlay.remove(); });
   }
+
+  window.switchSubmitTab = function(tab) {
+    ['normal','fixed'].forEach(k => {
+      const panel = document.getElementById(`stab-panel-${k}`);
+      const btn   = document.getElementById(`stab-${k}`);
+      if (panel) panel.style.display = k === tab ? 'block' : 'none';
+      if (btn)   btn.classList.toggle('active', k === tab);
+    });
+  };
 
   function buildSubmitAgencyBlock(p) {
     const block = document.createElement('div');
@@ -3208,6 +3335,114 @@ window.closeUexModal = function() {
     return block;
   }
 
+  function buildYoupflTableBlock(rows, agencyName) {
+    const block = document.createElement('div');
+    block.className = 'agency-block';
+    if (!rows.length) {
+      block.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text2);">유입플 배분 대상이 없습니다.</div>';
+      return block;
+    }
+    const totalTarget = rows.reduce((a,r) => a+(r.target||0)*(r.days||0), 0);
+    const hd = document.createElement('div');
+    hd.className = 'agency-hd';
+    hd.innerHTML = `<div><div class="aname">${escProd(agencyName||'')} <span style="font-weight:400;font-size:13px;color:var(--text2)">(유입플)</span></div><div class="ameta">총 ${rows.length}건 · 목표 합계 ${totalTarget.toLocaleString()}</div></div>`;
+    block.appendChild(hd);
+
+    const ell = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0';
+    const tbl = document.createElement('table');
+    tbl.className = 'ag-table';
+    tbl.style.cssText = 'table-layout:fixed;width:100%';
+    tbl.innerHTML = `<thead><tr>
+      <th style="width:180px">업체명</th>
+      <th style="width:100px">순위키워드</th>
+      <th style="width:68px;text-align:center">작업키워드</th>
+      <th style="width:110px">플레이스ID</th>
+      <th style="width:72px;text-align:right">작업타수</th>
+      <th style="width:44px;text-align:center">일수</th>
+      <th style="width:84px">시작일</th>
+      <th style="width:76px;text-align:center">상태</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    rows.forEach(r => {
+      const kwCount = (r.workKw||'').split(',').map(k=>k.trim()).filter(k=>k).length;
+      const tr = document.createElement('tr');
+      const statusTd = document.createElement('td');
+      statusTd.style.cssText = 'text-align:center;white-space:nowrap';
+      statusTd.textContent = '-';
+      tr.innerHTML = `
+        <td style="${ell}" title="${escProd(r.storeName)}">${escProd(r.storeName||'-')}</td>
+        <td style="${ell}" title="${escProd(r.rankKw)}">${escProd(r.rankKw||'-')}</td>
+        <td style="text-align:center" title="${escProd(r.workKw||'')}"><span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;white-space:nowrap">${kwCount}개</span></td>
+        <td style="${ell};font-size:11px;color:var(--text2)" title="${escProd(r.placeId||'')}">${escProd(r.placeId||'-')}</td>
+        <td style="text-align:right;white-space:nowrap">${(r.target||0).toLocaleString()}</td>
+        <td style="text-align:center;white-space:nowrap">${r.days||0}</td>
+        <td style="white-space:nowrap">${escProd(r.startDate||'-')}</td>
+      `;
+      tr.appendChild(statusTd);
+      tbody.appendChild(tr);
+      r._statusTd = statusTd;
+    });
+    tbl.appendChild(tbody);
+    block.appendChild(tbl);
+    return block;
+  }
+
+  async function executeYoupflSubmit(rows, overlay, gate=null) {
+    const applyBtn = overlay.querySelector('#youpfl-apply-btn');
+    const closeBtn = overlay.querySelector('#youpfl-close-btn');
+    const subEl    = overlay.querySelector('#youpfl-sub');
+    const misVal = overlay.querySelector('#youpfl-mission')?.value;
+    if (misVal === '' || misVal === null || misVal === undefined) {
+      alert('미션 횟수를 입력해주세요.');
+      return;
+    }
+    const mis = Math.max(0, parseInt(misVal, 10) || 0);
+
+    applyBtn.disabled = true; applyBtn.textContent = '⏳ 업로드 중...'; applyBtn.style.background = '#6b7280';
+    closeBtn.disabled = true;
+    window.bizfitSubmitting = true;
+    const normalBtn = overlay.querySelector('#submit-apply-btn');
+    if (normalBtn) normalBtn.disabled = true;
+
+    function calcIkil(startDate) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const start = startDate ? new Date(startDate) : today; start.setHours(0, 0, 0, 0);
+      return Math.max(0, Math.round((start - today) / 86400000));
+    }
+
+    let result;
+    try {
+      result = await callBizfitProxy('/youpfl-upload', {
+        rows: rows.map(r => ({ rankKw: r.rankKw, workKw: r.workKw, placeId: r.placeId, target: r.target, days: r.days, mission: mis, ikil: calcIkil(r.startDate) })),
+      });
+    } catch(e) {
+      result = { success: false, message: '서버 호출 실패: ' + e.message };
+    }
+
+    if (result.success) {
+      rows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);">✅ 완료</span>'; });
+      subEl.innerHTML = `<span style="color:var(--accent);font-weight:600;">✅ ${escProd(result.message||'업로드 완료')}</span>`;
+      const slotMap = new Map(allSlots.map(s => [s._key, s]));
+      const slotKeys = rows.map(r => r._slotKey).filter(Boolean);
+      if (gate) {
+        gate.fixedKeys = new Set(slotKeys);
+        await gate.tryApprove();
+      } else {
+        await Promise.all(slotKeys.map(k => HA.approveSlot(k)));
+        slotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.status = 'active'; });
+      }
+      applyBtn.textContent = `✅ 완료 (${rows.length}건)`; applyBtn.style.background = '#475569'; applyBtn.style.cursor = 'default';
+      window.bizfitSubmitting = false;
+      closeBtn.disabled = false; closeBtn.onclick = () => { overlay.remove(); if (!gate) renderReceipts(false); };
+    } else {
+      rows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = `<span style="color:var(--danger);" title="${escProd(result.message||'')}">❌ 실패</span>`; });
+      subEl.innerHTML = `<span style="color:var(--danger);font-weight:600;">❌ ${escProd(result.message||'업로드 실패')}</span>`;
+      applyBtn.textContent = '❌ 실패'; applyBtn.style.background = '#b91c1c'; applyBtn.style.cursor = 'default';
+      window.bizfitSubmitting = false;
+      closeBtn.disabled = false; closeBtn.onclick = () => overlay.remove();
+    }
+  }
+
   function setGradeStatus(p, gradeName, html) {
     (p.gradeRowEls.get(gradeName) || []).forEach(td => td.innerHTML = html);
   }
@@ -3215,25 +3450,32 @@ window.closeUexModal = function() {
     p.gradeRowEls.forEach((_, name) => setGradeStatus(p, name, html));
   }
 
-  async function executeSubmit(plan, overlay) {
+  async function executeSubmit(plan, overlay, gate=null) {
     const applyBtn = overlay.querySelector('#submit-apply-btn');
     const closeBtn = overlay.querySelector('#submit-close-btn');
     window.bizfitSubmitting = true;
     applyBtn.disabled = true; applyBtn.textContent = '⏳ 처리 중...'; applyBtn.style.background = '#6b7280';
     closeBtn.disabled = true;
+    const youpflBtn = overlay.querySelector('#youpfl-apply-btn');
+    if (youpflBtn) youpflBtn.disabled = true;
     let okTotal = 0, failTotal = 0;
     const slotMap = new Map(allSlots.map(s => [s._key, s]));
+    const approvedKeys = gate ? new Set() : null;
 
     async function processAgency(p) {
       if (!p.rows.length) return;
       setAllStatus(p, '<span style="color:var(--info);">⏳</span>');
 
-      // 키워드 50개 초과 행 즉시 실패 처리
+      // 유효성 검사 — 키워드 50개 초과 / 일목표 10 미만
       p.rows.forEach(r => {
         const kwCount = (r.검색키워드||'').split(',').map(k=>k.trim()).filter(k=>k).length;
         if (kwCount > 50) {
           r._kwFail = true;
           if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--danger);" title="검색키워드 50개 초과">❌ 키워드 초과</span>';
+          failTotal++;
+        } else if ((r.일목표||0) < 10) {
+          r._kwFail = true;
+          if (r._statusTd) r._statusTd.innerHTML = `<span style="color:var(--danger);" title="일목표 ${r.일목표||0}개 — 10 미만">❌ 일목표 미달</span>`;
           failTotal++;
         }
       });
@@ -3241,7 +3483,7 @@ window.closeUexModal = function() {
       const validRows = p.rows.filter(r => !r._kwFail);
 
       if (!validRows.length) {
-        if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">전체 키워드 초과 (50개 제한)</span>';
+        if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">전체 유효성 검사 실패 (키워드 초과 또는 일목표 미달)</span>';
         return;
       }
 
@@ -3284,8 +3526,12 @@ window.closeUexModal = function() {
         if (result.success) {
           okTotal += grpRows.length;
           const slotKeys = grpRows.map(r => r._slotKey).filter(Boolean);
-          await Promise.all(slotKeys.map(k => HA.approveSlot(k)));
-          slotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.status = 'active'; });
+          if (gate) {
+            slotKeys.forEach(k => approvedKeys.add(k));
+          } else {
+            await Promise.all(slotKeys.map(k => HA.approveSlot(k)));
+            slotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.status = 'active'; });
+          }
           grpRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);">✅ 완료</span>'; });
         } else {
           failTotal += grpRows.length;
@@ -3305,7 +3551,7 @@ window.closeUexModal = function() {
       });
       if (p.msgEl) {
         const kwFailCount = p.rows.filter(r => r._kwFail).length;
-        const parts = [kwFailCount ? `키워드 초과 ${kwFailCount}건` : '', agencyFail ? '일부 등급 실패 — 상태 칸에서 사유 확인(마우스오버)' : ''].filter(Boolean);
+        const parts = [kwFailCount ? `유효성 실패 ${kwFailCount}건` : '', agencyFail ? '일부 등급 실패 — 상태 칸에서 사유 확인(마우스오버)' : ''].filter(Boolean);
         p.msgEl.innerHTML = parts.length
           ? `<span style="color:var(--danger);font-size:11px;">${parts.join(' / ')}</span>`
           : `<span style="color:var(--accent);font-size:11px;">✅ 전체 접수 완료</span>`;
@@ -3314,12 +3560,17 @@ window.closeUexModal = function() {
 
     await Promise.all(plan.map(p => processAgency(p)));
 
+    if (gate) {
+      gate.normalKeys = approvedKeys;
+      await gate.tryApprove();
+    }
+
     window.bizfitSubmitting = false;
     applyBtn.textContent = failTotal ? `완료 — 성공 ${okTotal} / 실패 ${failTotal}` : `✅ 전체 완료 (${okTotal}건)`;
     applyBtn.style.background = failTotal ? '#b91c1c' : '#475569';
     applyBtn.style.cursor = 'default';
     closeBtn.disabled = false;
-    closeBtn.onclick = () => { overlay.remove(); renderReceipts(false); };
+    closeBtn.onclick = () => { overlay.remove(); if (!gate) renderReceipts(false); };
   }
 
   function byGradeCount(rows, name) { return rows.filter(r => r.상품등급명 === name).length; }
