@@ -1455,6 +1455,7 @@ import HA from './store.js';
 
 <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:16px;gap:8px;">
   <button class="action-btn" id="dl-single-btn" style="background:#16a34a;color:#fff;padding:7px 16px;font-size:12px;" onclick="downloadExcelList()">📥 엑셀 다운로드</button>
+  <button class="action-btn" id="adlog-btn" style="background:#7c3aed;color:#fff;padding:7px 16px;font-size:12px;" onclick="submitAdlog()">📤 애드로그</button>
 </div>
 
 <div class="filter-bar">
@@ -3131,6 +3132,175 @@ window.closeUexModal = function() {
     return res.json();
   }
 
+  // ── 애드로그 대량등록 접수 (그룹/키워드/URL/메모) ────────────
+  // 프론트(SheetJS)가 만든 xlsx를 그대로 프록시로 릴레이한다.
+  // openpyxl 등 서버에서 새로 생성한 xlsx는 adlog.kr이 거부하는 것이 실측으로 확인됨.
+  window.submitAdlog = function() {
+    const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
+    const keySet = new Set(checkedKeys);
+    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : allSlots;
+    const target = base.filter(s => s.status === 'accepted');
+    if (!target.length) { alert('접수 상태인 캠페인이 없습니다.\n(승인 완료 항목은 재등록 불필요)'); return; }
+    openAdlogModal(target);
+  };
+
+  function buildAdlogRows(slots) {
+    return slots.map(s => {
+      let memo = '';
+      if (s.startDate) {
+        const [, m, d] = s.startDate.split('-').map(Number);
+        memo = `1test ${m}/${d}`;
+      }
+      return { _slotKey: s._key, group: s.agencyId||'(대행사 미지정)', keyword: s.rankKeyword||'', mid: s.mid||'', memo, _statusTd: null };
+    });
+  }
+
+  function openAdlogModal(target) {
+    const rows = buildAdlogRows(target);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box" style="width:min(96vw,760px);max-height:82vh;overflow-y:auto;overflow-x:hidden;">
+        <div class="modal-title">애드로그 대량등록 확인</div>
+        <div style="font-size:12px;margin-bottom:14px;" id="adlog-sub"></div>
+        <div id="adlog-body"></div>
+        <div class="modal-footer">
+          <button class="btn-cancel" id="adlog-close-btn">닫기</button>
+          <button id="adlog-apply-btn" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;">등록 신청</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#adlog-body').appendChild(buildAdlogTable(rows));
+
+    overlay.querySelector('#adlog-sub').innerHTML =
+      `<span style="color:var(--muted)">총 ${rows.length}건 —</span> <span style="color:#dc2626;font-weight:600;">검토 후 등록 신청을 눌러주세요.</span>`;
+
+    overlay.querySelector('#adlog-close-btn').onclick = () => { if (!window.adlogSubmitting) overlay.remove(); };
+    overlay.addEventListener('click', e => { if (e.target === overlay && !window.adlogSubmitting) overlay.remove(); });
+    overlay.querySelector('#adlog-apply-btn').onclick = () => executeAdlogSubmit(rows, overlay);
+  }
+
+  // ag-table 스타일(비즈핏 접수 모달과 동일 클래스) — 대행사 열 포함 단일 테이블
+  function buildAdlogTable(rows) {
+    const block = document.createElement('div');
+    block.className = 'agency-block';
+
+    const ell = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0';
+    const tbl = document.createElement('table');
+    tbl.className = 'ag-table';
+    tbl.style.cssText = 'table-layout:fixed;width:100%';
+    tbl.innerHTML = `<thead><tr>
+      <th style="width:120px">대행사</th>
+      <th style="width:160px">순위키워드</th>
+      <th style="width:140px">MID</th>
+      <th style="width:110px">메모</th>
+      <th style="width:76px;text-align:center">상태</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const statusTd = document.createElement('td');
+      statusTd.style.cssText = 'text-align:center;white-space:nowrap';
+      statusTd.textContent = '-';
+      tr.innerHTML = `
+        <td style="${ell};font-weight:700" title="${escProd(r.group)}">${escProd(r.group)}</td>
+        <td style="${ell}" title="${escProd(r.keyword)}">${escProd(r.keyword||'-')}</td>
+        <td style="${ell};font-size:11px;color:var(--text2)" title="${escProd(r.mid)}">${escProd(r.mid||'-')}</td>
+        <td style="${ell}" title="${escProd(r.memo)}">${escProd(r.memo||'-')}</td>
+      `;
+      tr.appendChild(statusTd);
+      tbody.appendChild(tr);
+      r._statusTd = statusTd;
+    });
+    tbl.appendChild(tbody);
+    block.appendChild(tbl);
+    return block;
+  }
+
+  function buildAdlogXlsxBase64(rows) {
+    const XLSX = window.XLSX;
+    const header = ['그룹(띄어쓰기까지 일치해야됨)', '키워드(필수)', 'URL(필수)', '메모(미작성시 공란)'];
+    const aoa = [header, ...rows.map(r => [r.group, r.keyword, r.mid, r.memo])];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:22},{wch:20},{wch:20},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws, '대량등록');
+    const arr = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const bytes = new Uint8Array(arr);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  const ADLOG_BATCH_SIZE = 100; // adlog.kr 대량등록 1회 최대 100건 제한
+
+  async function executeAdlogSubmit(rows, overlay) {
+    const applyBtn = overlay.querySelector('#adlog-apply-btn');
+    const closeBtn = overlay.querySelector('#adlog-close-btn');
+    const subEl    = overlay.querySelector('#adlog-sub');
+    applyBtn.disabled = true; applyBtn.textContent = '⏳ 등록 중...'; applyBtn.style.background = '#6b7280'; applyBtn.style.cursor = 'default';
+    closeBtn.disabled = true;
+    window.adlogSubmitting = true;
+
+    async function run() {
+      const chunks = [];
+      for (let i = 0; i < rows.length; i += ADLOG_BATCH_SIZE) chunks.push(rows.slice(i, i + ADLOG_BATCH_SIZE));
+
+      let totalCount = 0, totalRegistered = 0, hadFailure = false;
+      const failMessages = [];
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        if (chunks.length > 1) {
+          applyBtn.textContent = `⏳ 등록 중... (${i+1}/${chunks.length}배치)`;
+          subEl.innerHTML = `<span style="color:var(--muted)">배치 ${i+1}/${chunks.length} 전송 중 (${chunk.length}건)...</span>`;
+        }
+
+        let result;
+        try {
+          const fileBase64 = buildAdlogXlsxBase64(chunk);
+          result = await callBizfitProxy('/adlog-register', { fileBase64 });
+        } catch(e) {
+          result = { success: false, message: '서버 호출 실패: ' + e.message };
+        }
+
+        if (result.success) {
+          chunk.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);">✅ 완료</span>'; });
+          totalCount      += (result.total ?? chunk.length);
+          totalRegistered += (result.registered ?? chunk.length);
+        } else {
+          hadFailure = true;
+          failMessages.push(result.message || '알 수 없는 오류');
+          chunk.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = `<span style="color:var(--danger);" title="${escProd(result.message||'')}">❌ 실패</span>`; });
+        }
+      }
+
+      if (!hadFailure) {
+        const batchNote = chunks.length > 1 ? ` (${chunks.length}개 배치로 전송)` : '';
+        subEl.innerHTML = `<span style="color:var(--accent);font-weight:600;">✅ 총${totalCount}개 중 ${totalRegistered}개 등록 되었습니다.${batchNote}</span>`;
+        applyBtn.textContent = '✅ 등록 완료'; applyBtn.style.background = '#475569'; applyBtn.style.cursor = 'default';
+      } else {
+        subEl.innerHTML = `<span style="color:var(--danger);font-weight:600;">❌ 일부 배치 실패: ${escProd(failMessages.join(' / '))}</span>`;
+        applyBtn.textContent = '❌ 등록 실패'; applyBtn.style.background = '#b91c1c'; applyBtn.style.cursor = 'default';
+      }
+      applyBtn.disabled = true;
+      closeBtn.disabled = false;
+      window.adlogSubmitting = false;
+    }
+
+    if (window.XLSX) { await run(); } else {
+      await new Promise(resolve => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = resolve;
+        document.head.appendChild(s);
+      });
+      await run();
+    }
+  }
+
   function buildNormalRows(slots) {
     const AP = ap();
     const normalProds = AP.filter(p => !FIXED_PROD_IDS.has(p.id));
@@ -3144,6 +3314,7 @@ window.closeUexModal = function() {
         const kw = kwForProd(r.searchKeyword||'', prod);
         rows.push({
           _slotKey:   r._key,
+          _normalSubmitted: !!r.normalSubmitted,
           상품등급명: prod.name,
           업체명:     r.storeName||'',
           업체URL:    r.url||'',
@@ -3167,6 +3338,7 @@ window.closeUexModal = function() {
       if (yAmt <= 0) return null;
       return {
         _slotKey:  s._key,
+        _fixedSubmitted: !!s.fixedSubmitted,
         agencyId:  s.agencyId||'(대행사 미지정)',
         storeName: s.storeName||'',
         rankKw:    s.rankKeyword||'',
@@ -3252,8 +3424,12 @@ window.closeUexModal = function() {
         if (this.normalKeys === null || this.fixedKeys === null) return;
         const keys = [...this.normalKeys].filter(k => this.fixedKeys.has(k));
         if (keys.length) {
-          await Promise.all(keys.map(k => HA.approveSlot(k)));
-          keys.forEach(k => { const s = this.slotMap.get(k); if (s) s.status = 'active'; });
+          // 승인 전환과 동시에 임시 플래그 삭제(null) — 둘 다 완료된 이상 더 보관할 필요 없음
+          await Promise.all(keys.map(k => HA.updateSlot(k, { status: 'active', normalSubmitted: null, fixedSubmitted: null })));
+          keys.forEach(k => {
+            const s = this.slotMap.get(k);
+            if (s) { s.status = 'active'; delete s.normalSubmitted; delete s.fixedSubmitted; }
+          });
         }
         renderReceipts(false);
       }
@@ -3351,7 +3527,7 @@ window.closeUexModal = function() {
       const tr = document.createElement('tr');
       const statusTd = document.createElement('td');
       statusTd.style.cssText = 'text-align:center;white-space:nowrap';
-      statusTd.textContent = '-';
+      statusTd.innerHTML = r._normalSubmitted ? '<span style="color:var(--accent);" title="이전에 이미 접수 완료됨">✅ 완료(기존)</span>' : '-';
       tr.innerHTML = `
         <td style="${ell};font-weight:700" title="${escProd(r.상품등급명)}">${escProd(r.상품등급명)}</td>
         <td style="${ell}" title="${escProd(r.업체명)}">${escProd(r.업체명)}</td>
@@ -3413,7 +3589,7 @@ window.closeUexModal = function() {
       const tr = document.createElement('tr');
       const statusTd = document.createElement('td');
       statusTd.style.cssText = 'text-align:center;white-space:nowrap';
-      statusTd.textContent = '-';
+      statusTd.innerHTML = r._fixedSubmitted ? '<span style="color:var(--accent);" title="이전에 이미 접수 완료됨">✅ 완료(기존)</span>' : '-';
       tr.innerHTML = `
         <td style="${ell}" title="${escProd(r.storeName)}">${escProd(r.storeName||'-')}</td>
         <td style="${ell}" title="${escProd(r.rankKw)}">${escProd(r.rankKw||'-')}</td>
@@ -3436,6 +3612,24 @@ window.closeUexModal = function() {
     const applyBtn = overlay.querySelector('#youpfl-apply-btn');
     const closeBtn = overlay.querySelector('#youpfl-close-btn');
     const subEl    = overlay.querySelector('#youpfl-sub');
+
+    // 이전에 이미 접수 완료된 행(일반만 남아 모달을 닫았다가 재오픈한 경우)은 재제출하지 않음
+    const alreadyRows = rows.filter(r => r._fixedSubmitted);
+    const pendingRows = rows.filter(r => !r._fixedSubmitted);
+    alreadyRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);" title="이전에 이미 접수 완료됨">✅ 완료(기존)</span>'; });
+
+    if (!pendingRows.length) {
+      // 전부 이미 완료된 경우 — 업로드 없이 게이트만 마무리
+      subEl.innerHTML = '<span style="color:var(--accent);font-weight:600;">✅ 이미 모두 접수 완료된 항목입니다.</span>';
+      applyBtn.disabled = true; applyBtn.textContent = `✅ 완료 (${rows.length}건)`; applyBtn.style.background = '#475569'; applyBtn.style.cursor = 'default';
+      if (gate) {
+        gate.fixedKeys = new Set(rows.map(r => r._slotKey).filter(Boolean));
+        await gate.tryApprove();
+      }
+      closeBtn.disabled = false; closeBtn.onclick = () => { overlay.remove(); if (!gate) renderReceipts(false); };
+      return;
+    }
+
     const misVal = overlay.querySelector('#youpfl-mission')?.value;
     if (misVal === '' || misVal === null || misVal === undefined) {
       alert('미션 횟수를 입력해주세요.');
@@ -3458,32 +3652,46 @@ window.closeUexModal = function() {
     let result;
     try {
       result = await callBizfitProxy('/youpfl-upload', {
-        rows: rows.map(r => ({ rankKw: r.rankKw, workKw: r.workKw, placeId: r.placeId, target: r.target, days: r.days, mission: mis, ikil: calcIkil(r.startDate) })),
+        rows: pendingRows.map(r => ({ rankKw: r.rankKw, workKw: r.workKw, placeId: r.placeId, target: r.target, days: r.days, mission: mis, ikil: calcIkil(r.startDate) })),
       });
     } catch(e) {
       result = { success: false, message: '서버 호출 실패: ' + e.message };
     }
 
     if (result.success) {
-      rows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);">✅ 완료</span>'; });
+      pendingRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);">✅ 완료</span>'; });
       subEl.innerHTML = `<span style="color:var(--accent);font-weight:600;">✅ ${escProd(result.message||'업로드 완료')}</span>`;
       const slotMap = new Map(allSlots.map(s => [s._key, s]));
-      const slotKeys = rows.map(r => r._slotKey).filter(Boolean);
+      const pendingSlotKeys = pendingRows.map(r => r._slotKey).filter(Boolean);
+      const allDoneSlotKeys = rows.map(r => r._slotKey).filter(Boolean); // already + 이번에 성공한 것 전부
       if (gate) {
-        gate.fixedKeys = new Set(slotKeys);
+        gate.fixedKeys = new Set(allDoneSlotKeys);
+        if (pendingSlotKeys.length) {
+          // 일반이 아직 안 끝났으면 여기서 바로 승인 전환 안 됨 — 재접수 시 이번에 새로 성공한 것만 스킵되도록 임시 플래그 저장
+          await Promise.all(pendingSlotKeys.map(k => HA.updateSlot(k, { fixedSubmitted: true })));
+          pendingSlotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.fixedSubmitted = true; });
+        }
         await gate.tryApprove();
       } else {
-        await Promise.all(slotKeys.map(k => HA.approveSlot(k)));
-        slotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.status = 'active'; });
+        await Promise.all(pendingSlotKeys.map(k => HA.approveSlot(k)));
+        pendingSlotKeys.forEach(k => { const s = slotMap.get(k); if (s) s.status = 'active'; });
       }
       applyBtn.textContent = `✅ 완료 (${rows.length}건)`; applyBtn.style.background = '#475569'; applyBtn.style.cursor = 'default';
       window.bizfitSubmitting = false;
       closeBtn.disabled = false; closeBtn.onclick = () => { overlay.remove(); if (!gate) renderReceipts(false); };
+      // 일반 탭 잠금 해제 — 이 탭을 먼저 끝낸 뒤 계속 열어둔 채로 일반도 마저 접수할 수 있어야 함
+      if (normalBtn) normalBtn.disabled = false;
     } else {
-      rows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = `<span style="color:var(--danger);" title="${escProd(result.message||'')}">❌ 실패</span>`; });
+      pendingRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = `<span style="color:var(--danger);" title="${escProd(result.message||'')}">❌ 실패</span>`; });
       subEl.innerHTML = `<span style="color:var(--danger);font-weight:600;">❌ ${escProd(result.message||'업로드 실패')}</span>`;
       applyBtn.textContent = '❌ 실패'; applyBtn.style.background = '#b91c1c'; applyBtn.style.cursor = 'default';
       window.bizfitSubmitting = false;
+      if (normalBtn) normalBtn.disabled = false;
+      // 이미 완료된 것만이라도 게이트에 반영 (새로 실패한 것은 제외)
+      if (gate) {
+        gate.fixedKeys = new Set(alreadyRows.map(r => r._slotKey).filter(Boolean));
+        await gate.tryApprove();
+      }
       closeBtn.disabled = false; closeBtn.onclick = () => overlay.remove();
     }
   }
@@ -3509,10 +3717,23 @@ window.closeUexModal = function() {
 
     async function processAgency(p) {
       if (!p.rows.length) return;
-      setAllStatus(p, '<span style="color:var(--info);">⏳</span>');
+
+      // 이전에 이미 접수 완료된 행(유입플만 남아 모달을 닫았다가 재오픈한 경우)은 재제출하지 않고 완료 표시만 유지
+      const alreadyRows = p.rows.filter(r => r._normalSubmitted);
+      const pendingRows = p.rows.filter(r => !r._normalSubmitted);
+      alreadyRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--accent);" title="이전에 이미 접수 완료됨">✅ 완료(기존)</span>'; });
+      if (gate) alreadyRows.forEach(r => { if (r._slotKey) approvedKeys.add(r._slotKey); });
+      okTotal += alreadyRows.length;
+
+      if (!pendingRows.length) {
+        if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--accent);font-size:11px;">✅ 전체 접수 완료</span>';
+        return;
+      }
+
+      pendingRows.forEach(r => { if (r._statusTd) r._statusTd.innerHTML = '<span style="color:var(--info);">⏳</span>'; });
 
       // 유효성 검사 — 키워드 50개 초과 / 일목표 10 미만
-      p.rows.forEach(r => {
+      pendingRows.forEach(r => {
         const kwCount = (r.검색키워드||'').split(',').map(k=>k.trim()).filter(k=>k).length;
         if (kwCount > 50) {
           r._kwFail = true;
@@ -3525,7 +3746,7 @@ window.closeUexModal = function() {
         }
       });
 
-      const validRows = p.rows.filter(r => !r._kwFail);
+      const validRows = pendingRows.filter(r => !r._kwFail);
 
       if (!validRows.length) {
         if (p.msgEl) p.msgEl.innerHTML = '<span style="color:var(--danger);font-size:11px;">전체 유효성 검사 실패 (키워드 초과 또는 일목표 미달)</span>';
@@ -3542,7 +3763,7 @@ window.closeUexModal = function() {
 
       let gi;
       try {
-        gi = await callBizfitProxy('/grade-info', { domain: BIZFIT_DOMAIN, loginId: account.id, pwd: account.pw, tab: BIZFIT_TAB, rawData: validRows.map(({_slotKey, _statusTd, _kwFail, ...rest}) => rest) });
+        gi = await callBizfitProxy('/grade-info', { domain: BIZFIT_DOMAIN, loginId: account.id, pwd: account.pw, tab: BIZFIT_TAB, rawData: validRows.map(({_slotKey, _statusTd, _kwFail, _normalSubmitted, ...rest}) => rest) });
       } catch(e) { gi = { success:false, message: '서버 호출 실패: '+e.message }; }
 
       if (!gi.success || !gi.gradeGroups || !gi.gradeGroups.length) {
@@ -3559,7 +3780,7 @@ window.closeUexModal = function() {
         const grpRows = validRows.filter(r => r.상품등급명 === g.gradeName);
         if (!grpRows.length) continue;
         matchedGrades.add(g.gradeName);
-        const payloadRows = grpRows.map(({_slotKey, _statusTd, _kwFail, ...rest}) => rest);
+        const payloadRows = grpRows.map(({_slotKey, _statusTd, _kwFail, _normalSubmitted, ...rest}) => rest);
         let result;
         try {
           result = await callBizfitProxy('/register', {
@@ -3607,6 +3828,13 @@ window.closeUexModal = function() {
 
     if (gate) {
       gate.normalKeys = approvedKeys;
+      // 유입플이 아직 안 끝났으면 여기서 바로 승인 전환 안 됨 — 재접수 시 이번에 새로 성공한 것만 스킵되도록 임시 플래그 저장
+      // (이미 _normalSubmitted였던 건 위에서 재기록 없이 그대로 approvedKeys에만 포함됨)
+      const newlyDone = [...approvedKeys].filter(k => { const s = slotMap.get(k); return s && !s.normalSubmitted; });
+      if (newlyDone.length) {
+        await Promise.all(newlyDone.map(k => HA.updateSlot(k, { normalSubmitted: true })));
+        newlyDone.forEach(k => { const s = slotMap.get(k); if (s) s.normalSubmitted = true; });
+      }
       await gate.tryApprove();
     }
 
@@ -3616,6 +3844,8 @@ window.closeUexModal = function() {
     applyBtn.style.cursor = 'default';
     closeBtn.disabled = false;
     closeBtn.onclick = () => { overlay.remove(); if (!gate) renderReceipts(false); };
+    // 유입플 탭 잠금 해제 — 이 탭을 먼저 끝낸 뒤 계속 열어둔 채로 유입플도 마저 접수할 수 있어야 함
+    if (youpflBtn) youpflBtn.disabled = false;
   }
 
   function byGradeCount(rows, name) { return rows.filter(r => r.상품등급명 === name).length; }
