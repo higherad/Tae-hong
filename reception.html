@@ -3138,7 +3138,7 @@ window.closeUexModal = function() {
   window.submitAdlog = function() {
     const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
     const keySet = new Set(checkedKeys);
-    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : allSlots;
+    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : filteredAll;
     const target = base.filter(s => s.status === 'accepted');
     if (!target.length) { alert('접수 상태인 캠페인이 없습니다.\n(승인 완료 항목은 재등록 불필요)'); return; }
     openAdlogModal(target);
@@ -3354,7 +3354,7 @@ window.closeUexModal = function() {
   window.submitDirect = function() {
     const checkedKeys = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.key);
     const keySet = new Set(checkedKeys);
-    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : allSlots;
+    const base   = checkedKeys.length ? allSlots.filter(s => keySet.has(s._key)) : filteredAll;
     const target = base.filter(s => s.status === 'accepted');
     if (!target.length) { alert('접수 상태인 캠페인이 없습니다.\n(승인 완료 항목은 재접수 불필요)'); return; }
     const hasNormal = ap().some(p => !FIXED_PROD_IDS.has(p.id));
@@ -3632,7 +3632,7 @@ window.closeUexModal = function() {
 
     const misVal = overlay.querySelector('#youpfl-mission')?.value;
     if (misVal === '' || misVal === null || misVal === undefined) {
-      alert('미션 횟수를 입력해주세요.');
+      alert('미션 번호를 지정해주세요.');
       return;
     }
     const mis = Math.max(0, parseInt(misVal, 10) || 0);
